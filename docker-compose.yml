@@ -44,10 +44,9 @@ services:
     image: ghcr.io/erseco/omeka-s-docker:master
     restart: unless-stopped
     ports:
-      - 8000:80
+      - 81:80
     volumes:
       - omekas_data:/var/www/html/volume:Z
-      - ./:/var/www/html/volume/modules/ThreeDViewer
     environment:
       MYSQL_DATABASE: moodle
       MYSQL_USER: moodle
