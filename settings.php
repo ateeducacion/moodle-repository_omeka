@@ -15,22 +15,27 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * English language strings for repository_omeka.
+ * Plugin settings for repository_omeka.
  *
  * @package   repository_omeka
- * @copyright 2025 Área de Tecnología Educativa <ate.educacion@gobiernodecanarias.org>
+ * @copyright 2025 Área de Tecnología Educativa
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$string['configplugin'] = 'Omeka-S';
-$string['pluginname'] = 'Omeka-S Repository';
-$string['privacy:metadata'] = 'Omeka-S repository does not store or transmit your data to third parties.';
-$string['search'] = 'Search files in Omeka-S';
-$string['omeka:view'] = 'Use Omeka-S in the File Picker';
-$string['baseurl'] = 'Omeka-S base URL';
-$string['baseurl_desc'] = 'Root URL of the Omeka-S installation (e.g. https://example.com/omeka-s).';
-$string['apikey'] = 'API key';
-$string['apikey_desc'] = 'Optional API key if your Omeka-S instance requires authentication.';
-$string['cannotdownload'] = 'Unable to download the file from Omeka-S.';
+$settings->add(new admin_setting_configtext(
+    'repository_omeka/baseurl',
+    get_string('baseurl', 'repository_omeka'),
+    get_string('baseurl_desc', 'repository_omeka'),
+    '',
+    PARAM_URL
+));
+
+$settings->add(new admin_setting_configtext(
+    'repository_omeka/apikey',
+    get_string('apikey', 'repository_omeka'),
+    get_string('apikey_desc', 'repository_omeka'),
+    '',
+    PARAM_TEXT
+));

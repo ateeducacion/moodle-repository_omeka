@@ -47,8 +47,7 @@ class repository_omeka extends repository {
      * @throws dml_exception
      */
     public function get_listing($encodedpath = "", $page = "") {
-        // TODO: Implement Omeka-S API integration here.
-        return $this->search("", 0);
+        return $this->search("", (int)$page);
     }
 
     /**
@@ -63,74 +62,51 @@ class repository_omeka extends repository {
      * @throws dml_exception
      */
     public function search($searchtext, $page = 0) {
-        global $SESSION;
+        $items = $this->api_request('/api/items', [
+            'search' => $searchtext,
+            'page'   => $page + 1
+        ]);
 
-        $sessionkeyword = "ottflix_" . $this->id;
+        $list = [];
+        if (is_array($items)) {
+            foreach ($items as $item) {
+                $title = $item['o:title'] ?? 'Item ' . $item['o:id'];
+                $media = $item['o:media'][0] ?? null;
+                if (!$media) {
+                    continue;
+                }
 
-        if ($page && !$searchtext && isset($SESSION->{$sessionkeyword})) {
-            $searchtext = $SESSION->{$sessionkeyword};
-        }
+                $mediainfo = $this->api_request('/api/media/' . $media['o:id']);
+                if (!$mediainfo) {
+                    continue;
+                }
 
-        $SESSION->{$sessionkeyword} = $searchtext;
-
-        $ret = [
-            "dynload" => true,
-            "nologin" => true,
-            "page" => (int)$page,
-            "norefresh" => false,
-            "nosearch" => false,
-            "manage" => "https://tuservidor-omeka-s/", // Cambia esta URL por la de tu Omeka-S.
-            "list" => [],
-            "path" => [],
-        ];
-
-        $path = null;
-        $pathid = "";
-        if ($p = optional_param("p", false, PARAM_RAW)) {
-            /** @var object $path */
-            $path = json_decode(base64_decode($p));
-            if (isset($path->path_id)) {
-                $pathid = $path->path_id;
-            }
-        }
-
-        if (isset($path->h5p_id) || isset($path->scorm_id)) {
-            if (isset($path->h5p_id)) {
-                $lasttitle = "H5P´s";
-
-                $ret["list"] = $this->h5p_itens($path, "h5p");
-            } else if (isset($path->scorm_id)) {
-                $lasttitle = "SCORM´s";
-
-                $ret["list"] = $this->h5p_itens($path, "zip");
-            }
-
-            if (isset($lasttitle)) {
-                $ret["path"] = (array)$path->path;
-                $ret["path"][] = [
-                    "name" => "{$lasttitle} => {$path->title}",
-                    "path" => $p,
+                $fileurl = $mediainfo['o:original_url'] ?? $mediainfo['o:source'] ?? '';
+                if (!$fileurl) {
+                    continue;
+                }
+                $thumb = $mediainfo['thumbnail_display_urls']['medium'] ?? '';
+                $list[] = [
+                    'title' => $title,
+                    'source' => $fileurl,
+                    'thumbnail' => $thumb,
+                    'thumbnail_height' => 90,
+                    'thumbnail_width' => 90,
                 ];
             }
-        } else {
-            // Search files.
-            $generateh5p = $generatescorm = false;
-            $extensions = optional_param_array("accepted_types", [], PARAM_TEXT);
-            if ($extensions[0] == ".h5p") {
-                $generateh5p = true;
-                $extensions = ["Video", "Audio"];
-            }
-            if ($extensions[0] == ".zip" || $extensions[0] == ".imscc") {
-                $generatescorm = true;
-                $extensions = ["Video", "Audio"];
-            }
-            // TODO: Aquí deberás implementar la lógica para obtener los recursos de Omeka-S.
-            // Por ahora, se deja vacío para que puedas implementar la integración real.
         }
 
-        $ret["pages"] = (count($ret["list"]) < 20) ? $ret["page"] : -1;
-
-        return $ret;
+        return [
+            'dynload' => true,
+            'nologin' => true,
+            'page' => (int)$page,
+            'norefresh' => false,
+            'nosearch' => false,
+            'manage' => rtrim(get_config('repository_omeka', 'baseurl'), '/'),
+            'list' => $list,
+            'path' => [],
+            'pages' => (count($list) < 20) ? $page : -1,
+        ];
     }
 
     /**
@@ -154,8 +130,14 @@ class repository_omeka extends repository {
      * @throws Exception
      */
     public function get_file($source, $filename = "") {
-        // TODO: Implementar la descarga de archivos desde Omeka-S.
-        throw new \moodle_exception("notimplemented", "repository_omeka");
+        $filename = $filename ?: basename(parse_url($source, PHP_URL_PATH));
+        $tmpfile = $this->prepare_file($filename);
+        $content = @file_get_contents($source);
+        if ($content === false) {
+            throw new \moodle_exception('cannotdownload', 'repository_omeka');
+        }
+        file_put_contents($tmpfile, $content);
+        return ['path' => $tmpfile];
     }
 
     /**
@@ -178,7 +160,7 @@ class repository_omeka extends repository {
     }
 
     /**
-     * file types supported by ottflix plugin
+     * File types supported by the Omeka repository plugin
      *
      * @return array
      */
@@ -190,11 +172,51 @@ class repository_omeka extends repository {
     }
 
     /**
-     * ottflix plugin only return external links
+     * Omeka repository only returns external links
      *
      * @return int
      */
     public function supported_returntypes() {
         return FILE_INTERNAL | FILE_REFERENCE;
+    }
+
+    /**
+     * Helper to perform GET requests against the Omeka-S API.
+     *
+     * @param string $path API path starting with '/'.
+     * @param array $params Query parameters.
+     * @return array
+     */
+    private function api_request(string $path, array $params = []): array {
+        $baseurl = rtrim((string)get_config('repository_omeka', 'baseurl'), '/');
+        if (!$baseurl) {
+            return [];
+        }
+
+        $apikey = trim((string)get_config('repository_omeka', 'apikey'));
+        if ($apikey !== '') {
+            $params['key_identity'] = $apikey;
+        }
+
+        $url = $baseurl . $path;
+        if (!empty($params)) {
+            $url .= '?' . http_build_query($params);
+        }
+
+        $opts = [
+            'http' => [
+                'header' => "Accept: application/json\r\n",
+                'timeout' => 10,
+            ],
+        ];
+
+        $context = stream_context_create($opts);
+        $content = @file_get_contents($url, false, $context);
+        if ($content === false) {
+            return [];
+        }
+
+        $data = json_decode($content, true);
+        return is_array($data) ? $data : [];
     }
 }
