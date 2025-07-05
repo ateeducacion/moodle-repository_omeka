@@ -10,7 +10,7 @@ Con este plugin podrás enlazar recursos de Omeka-S directamente en Moodle, perm
 
 1. Copia el plugin en la carpeta `repository/omeka` de tu instalación de Moodle.
 2. Accede a la administración del sitio y finaliza la instalación.
-3. Configura la URL y las credenciales de tu instancia de Omeka-S en la configuración del repositorio.
+3. Configura la URL y, si es necesario, la clave API de tu instancia de Omeka-S en la configuración del repositorio.
 
 ## Dependencias
 

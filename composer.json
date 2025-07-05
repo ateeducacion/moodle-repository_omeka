@@ -1,6 +1,7 @@
 {
     "name": "moodle/repository-omeka",
     "type": "moodle-plugin",
+    "description": "Moodle repository plugin to browse and download items from an Omeka-S instance.",
     "license": "GPL-3.0-or-later",
     "authors": [
         {

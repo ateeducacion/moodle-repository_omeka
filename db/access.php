@@ -18,19 +18,19 @@
  * Plugin capabilities.
  *
  * @package   repository_omeka
- * @copyright 2025 Eduardo Kraus {@link https://www.ottflix.com}
+ * @copyright 2025 Área de Tecnología Educativa
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 $capabilities = [
-    "repository/ottflix:view" => [
-        "captype" => "read",
-        "contextlevel" => CONTEXT_MODULE,
-        "archetypes" => [
-            "editingteacher" => CAP_ALLOW,
-            "manager" => CAP_ALLOW,
+    'repository/omeka:view' => [
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_USER,
+        'archetypes' => [
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
         ],
     ],
 ];
