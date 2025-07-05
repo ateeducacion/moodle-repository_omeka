@@ -1,0 +1,24 @@
+# Ignore local environment files
+.env
+
+# Ignore Moodle configuration file if copied here
+config.php
+
+# Ignore Composer dependencies
+/vendor/
+
+# Ignore PHPUnit cache
+.phpunit.result.cache
+
+# Ignore log files
+*.log
+
+# Ignore macOS files
+.DS_Store
+
+# Ignore editor swap files and other temp files
+*~
+*.swp
+.idea/
+.vscode/
+.aider*

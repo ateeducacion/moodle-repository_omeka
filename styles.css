@@ -1,0 +1,32 @@
+.repository_ottflix .fp-file {
+    margin: 5px 5px 65px !important;
+    border: 1px solid #e7e7e7;
+}
+.repository_ottflix .fp-file img {
+    max-width: 100% !important;
+    max-height: 140px !important;
+}
+.repository_ottflix .fp-file:hover {
+    border: 1px solid rgba(0, 0, 0, 0) !important;
+    background: #e7e7e7;
+}
+.repository_ottflix .fp-file:hover .fp-filename {
+    border: none !important;
+    background: #e7e7e7;
+    margin-top: -2px;
+}
+.repository_ottflix .fp-file:hover .fp-filename-field,
+.repository_ottflix .fp-file:hover .fp-filename {
+    width: 100% !important;
+}
+.repository_ottflix .fp-iconview .fp-thumbnail {
+    border: none !important;
+    width: 193px !important;
+    height: 110px !important;
+    min-height: 110px;
+}
+.repository_ottflix .fp-iconview .fp-thumbnail img {
+    max-width: 100% !important;
+    border: none;
+    padding: 0;
+}

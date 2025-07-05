@@ -1,0 +1,36 @@
+.repository_ottflix {
+    .fp-file {
+        margin: 5px 5px 65px !important;
+        border: 1px solid #e7e7e7;
+        img {
+            max-width: 100% !important;
+            max-height: 140px !important;
+        }
+        &:hover {
+            border: 1px solid #0000 !important;
+            background: #e7e7e7;
+            .fp-filename {
+                border: none !important;
+                background: #e7e7e7;
+                margin-top: -2px;
+            }
+            .fp-filename-field,
+            .fp-filename {
+                width: 100% !important;
+            }
+        }
+    }
+    .fp-iconview {
+        .fp-thumbnail {
+            border: none !important;
+            width: 193px !important;
+            height: 110px !important;
+            min-height: 110px;
+            img {
+                max-width: 100% !important;
+                border: none;
+                padding: 0;
+            }
+        }
+    }
+}

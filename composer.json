@@ -1,0 +1,14 @@
+{
+    "name": "moodle/repository-omeka",
+    "type": "moodle-plugin",
+    "license": "GPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Área de Tecnología Educativa",
+            "email": "ate.educacion@gobiernodecanarias.org"
+        }
+    ],
+    "require": {
+        "php": ">=7.4"
+    }
+}
