@@ -62,10 +62,15 @@ class repository_omeka extends repository {
      * @throws dml_exception
      */
     public function search($searchtext, $page = 0) {
-        $items = $this->api_request('/api/items', [
+        $params = [
             'search' => $searchtext,
             'page'   => $page + 1,
-        ]);
+        ];
+        $siteid = (int)$this->get_option('siteid');
+        if ($siteid) {
+            $params['site_id'] = $siteid;
+        }
+        $items = $this->api_request('/api/items', $params);
 
         $list = [];
         if (is_array($items)) {
@@ -190,6 +195,25 @@ class repository_omeka extends repository {
         $mform->addRule('baseurl', get_string('required'), 'required', null, 'client');
         $mform->setType('baseurl', PARAM_URL);
 
+        $baseurl = optional_param('baseurl', '', PARAM_URL);
+        $keyidentity = optional_param('keyidentity', '', PARAM_RAW);
+        $keycredential = optional_param('keycredential', '', PARAM_RAW);
+        $instanceid = optional_param('id', 0, PARAM_INT);
+        if (!$baseurl && $instanceid) {
+            $instance = repository::get_instance($instanceid);
+            $baseurl = (string)$instance->get_option('baseurl');
+            $keyidentity = (string)$instance->get_option('keyidentity');
+            $keycredential = (string)$instance->get_option('keycredential');
+        }
+        $sites = self::fetch_sites($baseurl, $keyidentity, $keycredential);
+        if ($sites) {
+            $mform->addElement('select', 'siteid', get_string('site', 'repository_omeka'), $sites);
+        } else {
+            $mform->addElement('text', 'siteid', get_string('site', 'repository_omeka'));
+        }
+        $mform->setType('siteid', PARAM_INT);
+        $mform->addHelpButton('siteid', 'site', 'repository_omeka');
+
         $mform->addElement('text', 'keyidentity', get_string('keyidentity', 'repository_omeka'));
         $mform->setType('keyidentity', PARAM_TEXT);
         $mform->addHelpButton('keyidentity', 'keyidentity', 'repository_omeka');
@@ -207,6 +231,7 @@ class repository_omeka extends repository {
      */
     public function set_option($options = []) {
         $options['baseurl'] = clean_param($options['baseurl'], PARAM_URL);
+        $options['siteid'] = clean_param($options['siteid'], PARAM_INT);
         $options['keyidentity'] = clean_param($options['keyidentity'], PARAM_TEXT);
         $options['keycredential'] = clean_param($options['keycredential'], PARAM_TEXT);
         return parent::set_option($options);
@@ -218,7 +243,55 @@ class repository_omeka extends repository {
      * @return array
      */
     public static function get_instance_option_names() {
-        return ['baseurl', 'keyidentity', 'keycredential'];
+        return ['baseurl', 'siteid', 'keyidentity', 'keycredential'];
+    }
+
+    /**
+     * Retrieve list of available sites from an Omeka-S instance.
+     *
+     * @param string $baseurl Base URL of Omeka-S.
+     * @param string $keyidentity Optional API key identity.
+     * @param string $keycredential Optional API key credential.
+     * @return array siteid => label
+     */
+    private static function fetch_sites(string $baseurl, string $keyidentity = '', string $keycredential = ''): array {
+        $baseurl = rtrim($baseurl, '/');
+        if (!$baseurl) {
+            return [];
+        }
+        $params = [];
+        if ($keyidentity !== '') {
+            $params['key_identity'] = $keyidentity;
+        }
+        if ($keycredential !== '') {
+            $params['key_credential'] = $keycredential;
+        }
+        $url = $baseurl . '/api/sites';
+        if (!empty($params)) {
+            $url .= '?' . http_build_query($params);
+        }
+        $content = @file_get_contents($url);
+        if ($content === false) {
+            return [];
+        }
+        $data = json_decode($content, true);
+        if (!is_array($data)) {
+            return [];
+        }
+        $list = [];
+        foreach ($data as $site) {
+            if (!isset($site['o:id'])) {
+                continue;
+            }
+            $title = $site['o:title'] ?? ('Site ' . $site['o:id']);
+            $slug = $site['o:slug'] ?? '';
+            $label = $title;
+            if ($slug !== '') {
+                $label .= " ({$slug})";
+            }
+            $list[$site['o:id']] = $label;
+        }
+        return $list;
     }
 
     /**
