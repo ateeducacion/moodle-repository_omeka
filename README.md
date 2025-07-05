@@ -6,6 +6,8 @@ Este plugin permite conectar Moodle con una o varias instancias de Omeka-S, faci
 
 Con este plugin podrás enlazar recursos de Omeka-S directamente en Moodle, permitiendo a los usuarios buscar, seleccionar y reutilizar objetos digitales y colecciones gestionadas en Omeka-S.
 
+Las búsquedas de archivos se realizan a través de la API REST de Omeka-S y los resultados se obtienen de forma paginada para evitar cargar todos los elementos de una sola vez.
+
 ## Instalación
 
 1. Copia el plugin en la carpeta `repository/omeka` de tu instalación de Moodle.

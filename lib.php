@@ -35,6 +35,24 @@ require_once("{$CFG->dirroot}/repository/lib.php");
  */
 class repository_omeka extends repository {
 
+    /** @var array Last response headers. */
+    private $lastheaders = [];
+
+    /**
+     * Retrieve a header value from the last API request.
+     *
+     * @param string $name Header name.
+     * @return string|null
+     */
+    private function get_header_value(string $name): ?string {
+        foreach ($this->lastheaders as $header) {
+            if (stripos($header, $name . ':') === 0) {
+                return trim(substr($header, strlen($name) + 1));
+            }
+        }
+        return null;
+    }
+
     /**
      * Get file listing.
      *
@@ -62,15 +80,18 @@ class repository_omeka extends repository {
      * @throws dml_exception
      */
     public function search($searchtext, $page = 0) {
+        $perpage = 20;
         $params = [
             'search' => $searchtext,
             'page'   => $page + 1,
+            'per_page' => $perpage,
         ];
         $siteid = (int)$this->get_option('siteid');
         if ($siteid) {
             $params['site_id'] = $siteid;
         }
         $items = $this->api_request('/api/items', $params);
+        $total = (int)($this->get_header_value('Omeka-S-Total-Results') ?? 0);
 
         $list = [];
         if (is_array($items)) {
@@ -110,7 +131,7 @@ class repository_omeka extends repository {
             'manage' => rtrim($this->get_option('baseurl'), '/'),
             'list' => $list,
             'path' => [],
-            'pages' => (count($list) < 20) ? $page : -1,
+            'pages' => (($page + 1) * $perpage < $total) ? -1 : $page,
         ];
     }
 
@@ -331,6 +352,7 @@ class repository_omeka extends repository {
 
         $context = stream_context_create($opts);
         $content = @file_get_contents($url, false, $context);
+        $this->lastheaders = $http_response_header ?? [];
         if ($content === false) {
             return [];
         }
