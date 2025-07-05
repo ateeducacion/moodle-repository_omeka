@@ -35,6 +35,24 @@ require_once("{$CFG->dirroot}/repository/lib.php");
  */
 class repository_omeka extends repository {
 
+    /** @var array Last response headers. */
+    private $lastheaders = [];
+
+    /**
+     * Retrieve a header value from the last API request.
+     *
+     * @param string $name Header name.
+     * @return string|null
+     */
+    private function get_header_value(string $name): ?string {
+        foreach ($this->lastheaders as $header) {
+            if (stripos($header, $name . ':') === 0) {
+                return trim(substr($header, strlen($name) + 1));
+            }
+        }
+        return null;
+    }
+
     /**
      * Get file listing.
      *
@@ -62,10 +80,18 @@ class repository_omeka extends repository {
      * @throws dml_exception
      */
     public function search($searchtext, $page = 0) {
-        $items = $this->api_request('/api/items', [
+        $perpage = 20;
+        $params = [
             'search' => $searchtext,
             'page'   => $page + 1,
-        ]);
+            'per_page' => $perpage,
+        ];
+        $siteid = (int)$this->get_option('siteid');
+        if ($siteid) {
+            $params['site_id'] = $siteid;
+        }
+        $items = $this->api_request('/api/items', $params);
+        $total = (int)($this->get_header_value('Omeka-S-Total-Results') ?? 0);
 
         $list = [];
         if (is_array($items)) {
@@ -102,10 +128,10 @@ class repository_omeka extends repository {
             'page' => (int)$page,
             'norefresh' => false,
             'nosearch' => false,
-            'manage' => rtrim(get_config('repository_omeka', 'baseurl'), '/'),
+            'manage' => rtrim($this->get_option('baseurl'), '/'),
             'list' => $list,
             'path' => [],
-            'pages' => (count($list) < 20) ? $page : -1,
+            'pages' => (($page + 1) * $perpage < $total) ? -1 : $page,
         ];
     }
 
@@ -181,6 +207,115 @@ class repository_omeka extends repository {
     }
 
     /**
+     * Add fields to the repository instance configuration form.
+     *
+     * @param \moodleform $mform
+     */
+    public static function instance_config_form($mform) {
+        $mform->addElement('text', 'baseurl', get_string('baseurl', 'repository_omeka'));
+        $mform->addRule('baseurl', get_string('required'), 'required', null, 'client');
+        $mform->setType('baseurl', PARAM_URL);
+
+        $baseurl = optional_param('baseurl', '', PARAM_URL);
+        $keyidentity = optional_param('keyidentity', '', PARAM_RAW);
+        $keycredential = optional_param('keycredential', '', PARAM_RAW);
+        $instanceid = optional_param('id', 0, PARAM_INT);
+        if (!$baseurl && $instanceid) {
+            $instance = repository::get_instance($instanceid);
+            $baseurl = (string)$instance->get_option('baseurl');
+            $keyidentity = (string)$instance->get_option('keyidentity');
+            $keycredential = (string)$instance->get_option('keycredential');
+        }
+        $sites = self::fetch_sites($baseurl, $keyidentity, $keycredential);
+        if ($sites) {
+            $mform->addElement('select', 'siteid', get_string('site', 'repository_omeka'), $sites);
+        } else {
+            $mform->addElement('text', 'siteid', get_string('site', 'repository_omeka'));
+        }
+        $mform->setType('siteid', PARAM_INT);
+        $mform->addHelpButton('siteid', 'site', 'repository_omeka');
+
+        $mform->addElement('text', 'keyidentity', get_string('keyidentity', 'repository_omeka'));
+        $mform->setType('keyidentity', PARAM_TEXT);
+        $mform->addHelpButton('keyidentity', 'keyidentity', 'repository_omeka');
+
+        $mform->addElement('text', 'keycredential', get_string('keycredential', 'repository_omeka'));
+        $mform->setType('keycredential', PARAM_TEXT);
+        $mform->addHelpButton('keycredential', 'keycredential', 'repository_omeka');
+    }
+
+    /**
+     * Save settings for repository instance.
+     *
+     * @param array $options settings
+     * @return bool
+     */
+    public function set_option($options = []) {
+        $options['baseurl'] = clean_param($options['baseurl'], PARAM_URL);
+        $options['siteid'] = clean_param($options['siteid'], PARAM_INT);
+        $options['keyidentity'] = clean_param($options['keyidentity'], PARAM_TEXT);
+        $options['keycredential'] = clean_param($options['keycredential'], PARAM_TEXT);
+        return parent::set_option($options);
+    }
+
+    /**
+     * Names of the plugin settings stored per instance.
+     *
+     * @return array
+     */
+    public static function get_instance_option_names() {
+        return ['baseurl', 'siteid', 'keyidentity', 'keycredential'];
+    }
+
+    /**
+     * Retrieve list of available sites from an Omeka-S instance.
+     *
+     * @param string $baseurl Base URL of Omeka-S.
+     * @param string $keyidentity Optional API key identity.
+     * @param string $keycredential Optional API key credential.
+     * @return array siteid => label
+     */
+    private static function fetch_sites(string $baseurl, string $keyidentity = '', string $keycredential = ''): array {
+        $baseurl = rtrim($baseurl, '/');
+        if (!$baseurl) {
+            return [];
+        }
+        $params = [];
+        if ($keyidentity !== '') {
+            $params['key_identity'] = $keyidentity;
+        }
+        if ($keycredential !== '') {
+            $params['key_credential'] = $keycredential;
+        }
+        $url = $baseurl . '/api/sites';
+        if (!empty($params)) {
+            $url .= '?' . http_build_query($params);
+        }
+        $content = @file_get_contents($url);
+        if ($content === false) {
+            return [];
+        }
+        $data = json_decode($content, true);
+        if (!is_array($data)) {
+            return [];
+        }
+        $list = [];
+        foreach ($data as $site) {
+            if (!isset($site['o:id'])) {
+                continue;
+            }
+            $title = $site['o:title'] ?? ('Site ' . $site['o:id']);
+            $slug = $site['o:slug'] ?? '';
+            $label = $title;
+            if ($slug !== '') {
+                $label .= " ({$slug})";
+            }
+            $list[$site['o:id']] = $label;
+        }
+        return $list;
+    }
+
+    /**
      * Helper to perform GET requests against the Omeka-S API.
      *
      * @param string $path API path starting with '/'.
@@ -188,14 +323,19 @@ class repository_omeka extends repository {
      * @return array
      */
     private function api_request(string $path, array $params = []): array {
-        $baseurl = rtrim((string)get_config('repository_omeka', 'baseurl'), '/');
+        $baseurl = rtrim((string)$this->get_option('baseurl'), '/');
         if (!$baseurl) {
             return [];
         }
 
-        $apikey = trim((string)get_config('repository_omeka', 'apikey'));
-        if ($apikey !== '') {
-            $params['key_identity'] = $apikey;
+        $keyidentity = trim((string)$this->get_option('keyidentity'));
+        if ($keyidentity !== '') {
+            $params['key_identity'] = $keyidentity;
+        }
+
+        $keycredential = trim((string)$this->get_option('keycredential'));
+        if ($keycredential !== '') {
+            $params['key_credential'] = $keycredential;
         }
 
         $url = $baseurl . $path;
@@ -212,6 +352,7 @@ class repository_omeka extends repository {
 
         $context = stream_context_create($opts);
         $content = @file_get_contents($url, false, $context);
+        $this->lastheaders = $http_response_header ?? [];
         if ($content === false) {
             return [];
         }
