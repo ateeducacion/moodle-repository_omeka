@@ -102,7 +102,7 @@ class repository_omeka extends repository {
             'page' => (int)$page,
             'norefresh' => false,
             'nosearch' => false,
-            'manage' => rtrim(get_config('repository_omeka', 'baseurl'), '/'),
+            'manage' => rtrim($this->get_option('baseurl'), '/'),
             'list' => $list,
             'path' => [],
             'pages' => (count($list) < 20) ? $page : -1,
@@ -181,6 +181,42 @@ class repository_omeka extends repository {
     }
 
     /**
+     * Add fields to the repository instance configuration form.
+     *
+     * @param \moodleform $mform
+     */
+    public static function instance_config_form($mform) {
+        $mform->addElement('text', 'baseurl', get_string('baseurl', 'repository_omeka'));
+        $mform->addRule('baseurl', get_string('required'), 'required', null, 'client');
+        $mform->setType('baseurl', PARAM_URL);
+
+        $mform->addElement('text', 'apikey', get_string('apikey', 'repository_omeka'));
+        $mform->setType('apikey', PARAM_TEXT);
+        $mform->addHelpButton('apikey', 'apikey', 'repository_omeka');
+    }
+
+    /**
+     * Save settings for repository instance.
+     *
+     * @param array $options settings
+     * @return bool
+     */
+    public function set_option($options = []) {
+        $options['baseurl'] = clean_param($options['baseurl'], PARAM_URL);
+        $options['apikey'] = clean_param($options['apikey'], PARAM_TEXT);
+        return parent::set_option($options);
+    }
+
+    /**
+     * Names of the plugin settings stored per instance.
+     *
+     * @return array
+     */
+    public static function get_instance_option_names() {
+        return ['baseurl', 'apikey'];
+    }
+
+    /**
      * Helper to perform GET requests against the Omeka-S API.
      *
      * @param string $path API path starting with '/'.
@@ -188,12 +224,12 @@ class repository_omeka extends repository {
      * @return array
      */
     private function api_request(string $path, array $params = []): array {
-        $baseurl = rtrim((string)get_config('repository_omeka', 'baseurl'), '/');
+        $baseurl = rtrim((string)$this->get_option('baseurl'), '/');
         if (!$baseurl) {
             return [];
         }
 
-        $apikey = trim((string)get_config('repository_omeka', 'apikey'));
+        $apikey = trim((string)$this->get_option('apikey'));
         if ($apikey !== '') {
             $params['key_identity'] = $apikey;
         }
