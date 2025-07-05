@@ -65,7 +65,13 @@ class repository_omeka extends repository {
      * @throws dml_exception
      */
     public function get_listing($encodedpath = "", $page = "") {
-        return $this->search("", (int)$page);
+        $path = $encodedpath !== '' ? base64_decode($encodedpath) : '';
+        if ($path === '') {
+            return $this->list_item_sets((int)$page);
+        }
+
+        $itemsetid = (int)$path;
+        return $this->search("", (int)$page, $itemsetid);
     }
 
     /**
@@ -79,7 +85,7 @@ class repository_omeka extends repository {
      * @throws coding_exception
      * @throws dml_exception
      */
-    public function search($searchtext, $page = 0) {
+    public function search($searchtext, $page = 0, ?int $itemsetid = null) {
         $perpage = 20;
         $params = [
             'search' => $searchtext,
@@ -89,6 +95,9 @@ class repository_omeka extends repository {
         $siteid = (int)$this->get_option('siteid');
         if ($siteid) {
             $params['site_id'] = $siteid;
+        }
+        if ($itemsetid) {
+            $params['item_set_id'] = $itemsetid;
         }
         $items = $this->api_request('/api/items', $params);
         $total = (int)($this->get_header_value('Omeka-S-Total-Results') ?? 0);
@@ -116,6 +125,68 @@ class repository_omeka extends repository {
                     'title' => $title,
                     'source' => $fileurl,
                     'thumbnail' => $thumb,
+                    'thumbnail_height' => 90,
+                    'thumbnail_width' => 90,
+                ];
+            }
+        }
+
+        $pathinfo = [];
+        if ($itemsetid) {
+            $itemset = $this->api_request('/api/item_sets/' . $itemsetid);
+            $title = $itemset['o:title'] ?? 'Item set ' . $itemsetid;
+            $pathinfo[] = [
+                'name' => get_string('pluginname', 'repository_omeka'),
+                'path' => ''
+            ];
+            $pathinfo[] = [
+                'name' => $title,
+                'path' => base64_encode((string)$itemsetid)
+            ];
+        }
+
+        return [
+            'dynload' => true,
+            'nologin' => true,
+            'page' => (int)$page,
+            'norefresh' => false,
+            'nosearch' => false,
+            'manage' => rtrim($this->get_option('baseurl'), '/'),
+            'list' => $list,
+            'path' => $pathinfo,
+            'pages' => (($page + 1) * $perpage < $total) ? -1 : $page,
+        ];
+    }
+
+    /**
+     * Retrieve a paginated list of item sets.
+     *
+     * @param int $page Page number starting at 0.
+     * @return array
+     */
+    private function list_item_sets(int $page = 0): array {
+        $perpage = 20;
+        $params = [
+            'page' => $page + 1,
+            'per_page' => $perpage,
+        ];
+        $siteid = (int)$this->get_option('siteid');
+        if ($siteid) {
+            $params['site_id'] = $siteid;
+        }
+
+        $sets = $this->api_request('/api/item_sets', $params);
+        $total = (int)($this->get_header_value('Omeka-S-Total-Results') ?? 0);
+
+        $list = [];
+        if (is_array($sets)) {
+            foreach ($sets as $set) {
+                $title = $set['o:title'] ?? 'Item set ' . $set['o:id'];
+                $list[] = [
+                    'title' => $title,
+                    'path' => base64_encode((string)$set['o:id']),
+                    'children' => [],
+                    'thumbnail' => '',
                     'thumbnail_height' => 90,
                     'thumbnail_width' => 90,
                 ];
