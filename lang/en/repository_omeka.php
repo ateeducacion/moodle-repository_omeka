@@ -24,13 +24,13 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+$string['apikey'] = 'API key';
+$string['apikey_desc'] = 'Optional API key if your Omeka-S instance requires authentication.';
+$string['baseurl'] = 'Omeka-S base URL';
+$string['baseurl_desc'] = 'Root URL of the Omeka-S installation (e.g. https://example.com/omeka-s).';
+$string['cannotdownload'] = 'Unable to download the file from Omeka-S.';
 $string['configplugin'] = 'Omeka-S';
+$string['omeka:view'] = 'Use Omeka-S in the File Picker';
 $string['pluginname'] = 'Omeka-S Repository';
 $string['privacy:metadata'] = 'Omeka-S repository does not store or transmit your data to third parties.';
 $string['search'] = 'Search files in Omeka-S';
-$string['omeka:view'] = 'Use Omeka-S in the File Picker';
-$string['baseurl'] = 'Omeka-S base URL';
-$string['baseurl_desc'] = 'Root URL of the Omeka-S installation (e.g. https://example.com/omeka-s).';
-$string['apikey'] = 'API key';
-$string['apikey_desc'] = 'Optional API key if your Omeka-S instance requires authentication.';
-$string['cannotdownload'] = 'Unable to download the file from Omeka-S.';

@@ -64,7 +64,7 @@ class repository_omeka extends repository {
     public function search($searchtext, $page = 0) {
         $items = $this->api_request('/api/items', [
             'search' => $searchtext,
-            'page'   => $page + 1
+            'page'   => $page + 1,
         ]);
 
         $list = [];
@@ -167,7 +167,7 @@ class repository_omeka extends repository {
     public function supported_filetypes() {
         // Ajusta los tipos de archivo soportados según lo que permita Omeka-S.
         return [
-            "image", "audio", "video", "document"
+            "image", "audio", "video", "document",
         ];
     }
 
