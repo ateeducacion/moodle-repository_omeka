@@ -190,9 +190,13 @@ class repository_omeka extends repository {
         $mform->addRule('baseurl', get_string('required'), 'required', null, 'client');
         $mform->setType('baseurl', PARAM_URL);
 
-        $mform->addElement('text', 'apikey', get_string('apikey', 'repository_omeka'));
-        $mform->setType('apikey', PARAM_TEXT);
-        $mform->addHelpButton('apikey', 'apikey', 'repository_omeka');
+        $mform->addElement('text', 'keyidentity', get_string('keyidentity', 'repository_omeka'));
+        $mform->setType('keyidentity', PARAM_TEXT);
+        $mform->addHelpButton('keyidentity', 'keyidentity', 'repository_omeka');
+
+        $mform->addElement('text', 'keycredential', get_string('keycredential', 'repository_omeka'));
+        $mform->setType('keycredential', PARAM_TEXT);
+        $mform->addHelpButton('keycredential', 'keycredential', 'repository_omeka');
     }
 
     /**
@@ -203,7 +207,8 @@ class repository_omeka extends repository {
      */
     public function set_option($options = []) {
         $options['baseurl'] = clean_param($options['baseurl'], PARAM_URL);
-        $options['apikey'] = clean_param($options['apikey'], PARAM_TEXT);
+        $options['keyidentity'] = clean_param($options['keyidentity'], PARAM_TEXT);
+        $options['keycredential'] = clean_param($options['keycredential'], PARAM_TEXT);
         return parent::set_option($options);
     }
 
@@ -213,7 +218,7 @@ class repository_omeka extends repository {
      * @return array
      */
     public static function get_instance_option_names() {
-        return ['baseurl', 'apikey'];
+        return ['baseurl', 'keyidentity', 'keycredential'];
     }
 
     /**
@@ -229,9 +234,14 @@ class repository_omeka extends repository {
             return [];
         }
 
-        $apikey = trim((string)$this->get_option('apikey'));
-        if ($apikey !== '') {
-            $params['key_identity'] = $apikey;
+        $keyidentity = trim((string)$this->get_option('keyidentity'));
+        if ($keyidentity !== '') {
+            $params['key_identity'] = $keyidentity;
+        }
+
+        $keycredential = trim((string)$this->get_option('keycredential'));
+        if ($keycredential !== '') {
+            $params['key_credential'] = $keycredential;
         }
 
         $url = $baseurl . $path;
