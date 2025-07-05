@@ -25,12 +25,12 @@
 defined('MOODLE_INTERNAL') || die();
 
 $capabilities = [
-    "repository/omeka:view" => [
-        "captype" => "read",
-        "contextlevel" => CONTEXT_MODULE,
-        "archetypes" => [
-            "editingteacher" => CAP_ALLOW,
-            "manager" => CAP_ALLOW,
+    'repository/omeka:view' => [
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_USER,
+        'archetypes' => [
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
         ],
     ],
 ];
