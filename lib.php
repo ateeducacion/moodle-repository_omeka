@@ -1,11 +1,25 @@
 <?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
 /**
  * Lib class
  *
  * PHP version 7.4 or later
  *
- * @category  Repository
- * @package   Repository_Omeka
+ * @package   repository_omeka
  * @author    Área de Tecnología Educativa <ate.educacion@gobiernodecanarias.org>
  * @copyright 2025 Área de Tecnología Educativa <ate.educacion@gobiernodecanarias.org>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -14,22 +28,21 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once "{$CFG->dirroot}/repository/lib.php";
+require_once("{$CFG->dirroot}/repository/lib.php");
 
 /**
  * Repository Omeka class.
  *
  * Main repository class for Omeka-S integration.
  *
- * @category  Repository
- * @package   Repository_Omeka
+ * @package   repository_omeka
  * @author    Área de Tecnología Educativa <ate.educacion@gobiernodecanarias.org>
  * @copyright 2025 Área de Tecnología Educativa <ate.educacion@gobiernodecanarias.org>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @link      https://github.com/educacioncanarias/moodle-repository_omeka
  */
-class Repository_Omeka extends repository
-{
+class Repository_Omeka extends repository {
+
 
 
     /**
@@ -43,8 +56,7 @@ class Repository_Omeka extends repository
      * @param string $name Header name.
      * @return string|null Header value or null if not found.
      */
-    private function _getHeaderValue(string $name): ?string
-    {
+    private function _getheadervalue(string $name): ?string {
         foreach ($this->_lastheaders as $header) {
             if (stripos($header, $name . ':') === 0) {
                 return trim(substr($header, strlen($name) + 1));
@@ -62,8 +74,7 @@ class Repository_Omeka extends repository
      * @throws coding_exception
      * @throws dml_exception
      */
-    public function getListing($encodedpath = "", $page = "")
-    {
+    public function getlisting($encodedpath = "", $page = "") {
         $path = $encodedpath !== '' ? base64_decode($encodedpath) : '';
         if ($path === '') {
             return $this->_listItemSets((int)$page);
@@ -83,8 +94,7 @@ class Repository_Omeka extends repository
      * @throws coding_exception
      * @throws dml_exception
      */
-    public function search($searchtext, $page = 0, ?int $itemsetid = null)
-    {
+    public function search($searchtext, $page = 0, ?int $itemsetid = null) {
         $perpage = 20;
         $params = [
             'page' => $page + 1,
@@ -165,8 +175,7 @@ class Repository_Omeka extends repository
      * @param int $page Page number starting at 0.
      * @return array List of item sets.
      */
-    private function _listItemSets(int $page = 0): array
-    {
+    private function _listitemsets(int $page = 0): array {
         $perpage = 20;
         $params = [
             'page' => $page + 1,
@@ -227,8 +236,7 @@ class Repository_Omeka extends repository
      * @return array File path array.
      * @throws \moodle_exception If download fails.
      */
-    public function getFile($source, $filename = "")
-    {
+    public function getfile($source, $filename = "") {
         $filename = $filename ?: basename(parse_url($source, PHP_URL_PATH));
         $tmpfile = $this->prepare_file($filename);
         $content = @file_get_contents($source);
@@ -244,8 +252,7 @@ class Repository_Omeka extends repository
      *
      * @return bool Always false.
      */
-    public function globalSearch()
-    {
+    public function globalsearch() {
         return false;
     }
 
@@ -254,8 +261,7 @@ class Repository_Omeka extends repository
      *
      * @return array
      */
-    public static function getTypeOptionNames()
-    {
+    public static function gettypeoptionnames() {
         // Puedes añadir aquí las opciones de configuración necesarias para Omeka-S.
         return array_merge(parent::get_type_option_names(), []);
     }
@@ -265,8 +271,7 @@ class Repository_Omeka extends repository
      *
      * @return array
      */
-    public function supportedFiletypes()
-    {
+    public function supportedfiletypes() {
         // Ajusta los tipos de archivo soportados según lo que permita Omeka-S.
         return [
             "image", "audio", "video", "document",
@@ -278,8 +283,7 @@ class Repository_Omeka extends repository
      *
      * @return int
      */
-    public function supportedReturntypes()
-    {
+    public function supportedreturntypes() {
         return FILE_INTERNAL | FILE_REFERENCE;
     }
 
@@ -289,8 +293,7 @@ class Repository_Omeka extends repository
      * @param \moodleform $mform The form object.
      * @return void
      */
-    public static function instanceConfigForm($mform)
-    {
+    public static function instanceconfigform($mform) {
         $mform->addElement('text', 'baseurl', get_string('baseurl', 'repository_omeka'));
         $mform->addRule('baseurl', get_string('required'), 'required', null, 'client');
         $mform->setType('baseurl', PARAM_URL);
@@ -329,8 +332,7 @@ class Repository_Omeka extends repository
      * @param array $options Settings.
      * @return bool
      */
-    public function setOption($options = [])
-    {
+    public function setoption($options = []) {
         $options['baseurl'] = clean_param($options['baseurl'], PARAM_URL);
         $options['siteid'] = clean_param($options['siteid'], PARAM_INT);
         $options['keyidentity'] = clean_param($options['keyidentity'], PARAM_TEXT);
@@ -343,8 +345,7 @@ class Repository_Omeka extends repository
      *
      * @return array
      */
-    public static function getInstanceOptionNames()
-    {
+    public static function getinstanceoptionnames() {
         return ['baseurl', 'siteid', 'keyidentity', 'keycredential'];
     }
 
@@ -356,8 +357,7 @@ class Repository_Omeka extends repository
      * @param string $keycredential Optional API key credential.
      * @return array siteid => label
      */
-    private static function _fetchSites(string $baseurl, string $keyidentity = '', string $keycredential = ''): array
-    {
+    private static function _fetchsites(string $baseurl, string $keyidentity = '', string $keycredential = ''): array {
         $baseurl = rtrim($baseurl, '/');
         if (!$baseurl) {
             return [];
@@ -404,8 +404,7 @@ class Repository_Omeka extends repository
      * @param array  $params Query parameters.
      * @return array
      */
-    private function _apiRequest(string $path, array $params = []): array
-    {
+    private function _apirequest(string $path, array $params = []): array {
         $baseurl = rtrim((string)$this->get_option('baseurl'), '/');
         if (!$baseurl) {
             return [];
