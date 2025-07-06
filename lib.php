@@ -35,13 +35,16 @@ require_once("{$CFG->dirroot}/repository/lib.php");
  */
 class repository_omeka extends repository {
 
-    /** @var array Last response headers. */
+
+    /**
+     * @var array Last response headers.
+     */
     private $lastheaders = [];
 
     /**
      * Retrieve a header value from the last API request.
      *
-     * @param string $name Header name.
+     * @param  string $name Header name.
      * @return string|null
      */
     private function get_header_value(string $name): ?string {
@@ -78,7 +81,7 @@ class repository_omeka extends repository {
      * Return search results.
      *
      * @param string $searchtext
-     * @param int $page
+     * @param int    $page
      *
      * @return array|mixed
      *
@@ -139,11 +142,11 @@ class repository_omeka extends repository {
             $title = $itemset['o:title'] ?? 'Item set ' . $itemsetid;
             $pathinfo[] = [
                 'name' => get_string('pluginname', 'repository_omeka'),
-                'path' => ''
+                'path' => '',
             ];
             $pathinfo[] = [
                 'name' => $title,
-                'path' => base64_encode((string)$itemsetid)
+                'path' => base64_encode((string)$itemsetid),
             ];
         }
 
@@ -163,7 +166,7 @@ class repository_omeka extends repository {
     /**
      * Retrieve a paginated list of item sets.
      *
-     * @param int $page Page number starting at 0.
+     * @param  int $page Page number starting at 0.
      * @return array
      */
     private function list_item_sets(int $page = 0): array {
@@ -320,7 +323,7 @@ class repository_omeka extends repository {
     /**
      * Save settings for repository instance.
      *
-     * @param array $options settings
+     * @param  array $options settings
      * @return bool
      */
     public function set_option($options = []) {
@@ -343,9 +346,9 @@ class repository_omeka extends repository {
     /**
      * Retrieve list of available sites from an Omeka-S instance.
      *
-     * @param string $baseurl Base URL of Omeka-S.
-     * @param string $keyidentity Optional API key identity.
-     * @param string $keycredential Optional API key credential.
+     * @param  string $baseurl       Base URL of Omeka-S.
+     * @param  string $keyidentity   Optional API key identity.
+     * @param  string $keycredential Optional API key credential.
      * @return array siteid => label
      */
     private static function fetch_sites(string $baseurl, string $keyidentity = '', string $keycredential = ''): array {
@@ -391,8 +394,8 @@ class repository_omeka extends repository {
     /**
      * Helper to perform GET requests against the Omeka-S API.
      *
-     * @param string $path API path starting with '/'.
-     * @param array $params Query parameters.
+     * @param  string $path   API path starting with '/'.
+     * @param  array  $params Query parameters.
      * @return array
      */
     private function api_request(string $path, array $params = []): array {
