@@ -1,37 +1,37 @@
 
-# Uso correcto de phpcs y phpcbf con moodle-plugin-ci
+# Correct use of phpcs and phpcbf with moodle-plugin-ci
 
-Para analizar y corregir el código de tu plugin Moodle usando los estándares de Moodle, debes utilizar las herramientas `phpcs` (PHP CodeSniffer) y `phpcbf` (PHP Code Beautifier and Fixer) incluidas en el entorno de `moodle-plugin-ci`.
+To analyze and fix your Moodle plugin code according to Moodle standards, you should use the `phpcs` (PHP CodeSniffer) and `phpcbf` (PHP Code Beautifier and Fixer) tools included in the `moodle-plugin-ci` environment.
 
-## Ejecución de phpcs
+## Running phpcs
 
-Para analizar archivos o directorios específicos y verificar que cumplen con los estándares de Moodle, ejecuta:
-
-```bash
-../moodle-plugin-ci/vendor/bin/phpcs --standard=moodle ./ruta/al/archivo_o_directorio.php
-```
-
-Esto mostrará los errores y advertencias de estilo detectados según el estándar de Moodle.
-
-## Ejecución de phpcbf
-
-Para intentar corregir automáticamente los errores de estilo detectados por `phpcs`, ejecuta:
+To analyze specific files or directories and check if they comply with Moodle standards, run:
 
 ```bash
-../moodle-plugin-ci/vendor/bin/phpcbf --standard=moodle ./ruta/al/archivo_o_directorio.php
+../moodle-plugin-ci/vendor/bin/phpcs --standard=moodle ./path/to/file_or_directory.php
 ```
 
-Esto modificará los archivos para corregir los problemas que puedan ser solucionados automáticamente.
+This will display any style errors and warnings detected according to the Moodle standard.
 
-## Notas
+## Running phpcbf
 
-- Asegúrate de tener instalado `moodle-plugin-ci` mediante composer fuera del directorio de Moodle, por ejemplo:
+To automatically fix style errors detected by `phpcs`, run:
+
+```bash
+../moodle-plugin-ci/vendor/bin/phpcbf --standard=moodle ./path/to/file_or_directory.php
+```
+
+This will modify the files to fix issues that can be automatically resolved.
+
+## Notes
+
+- Make sure you have installed `moodle-plugin-ci` using composer outside the Moodle directory, for example:
   ```bash
   php composer.phar create-project moodlehq/moodle-plugin-ci ../moodle-plugin-ci ^4
   ```
-- Si usas el archivo `.phar`, puedes ejecutar:
+- If you use the `.phar` file, you can run:
   ```bash
-  php moodle-plugin-ci.phar phpcs ./ruta/al/archivo_o_directorio.php
-  php moodle-plugin-ci.phar phpcbf ./ruta/al/archivo_o_directorio.php
+  php moodle-plugin-ci.phar phpcs ./path/to/file_or_directory.php
+  php moodle-plugin-ci.phar phpcbf ./path/to/file_or_directory.php
   ```
-- Consulta la documentación oficial de [moodle-plugin-ci](https://github.com/moodlehq/moodle-plugin-ci) para más detalles y opciones avanzadas.
+- See the official [moodle-plugin-ci documentation](https://github.com/moodlehq/moodle-plugin-ci) for more details and advanced options.
