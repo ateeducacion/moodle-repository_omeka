@@ -88,10 +88,12 @@ class repository_omeka extends repository {
     public function search($searchtext, $page = 0, ?int $itemsetid = null) {
         $perpage = 20;
         $params = [
-            'search' => $searchtext,
-            'page'   => $page + 1,
+            'page' => $page + 1,
             'per_page' => $perpage,
         ];
+        if ($searchtext !== '') {
+            $params['search'] = $searchtext;
+        }
         $siteid = (int)$this->get_option('siteid');
         if ($siteid) {
             $params['site_id'] = $siteid;
