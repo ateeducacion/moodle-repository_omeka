@@ -19,6 +19,8 @@ require_once "{$CFG->dirroot}/repository/lib.php";
 /**
  * Repository Omeka class.
  *
+ * Main repository class for Omeka-S integration.
+ *
  * @category  Repository
  * @package   Repository_Omeka
  * @author    Área de Tecnología Educativa <ate.educacion@gobiernodecanarias.org>
@@ -38,14 +40,8 @@ class Repository_Omeka extends repository
     /**
      * Retrieve a header value from the last API request.
      *
-     * @param  string $name Header name.
-     * @return string|null
-     */
-    /**
-     * Retrieve a header value from the last API request.
-     *
-     * @param  string $name Header name.
-     * @return string|null
+     * @param string $name Header name.
+     * @return string|null Header value or null if not found.
      */
     private function _getHeaderValue(string $name): ?string
     {
@@ -60,20 +56,9 @@ class Repository_Omeka extends repository
     /**
      * Get file listing.
      *
-     * @param string $encodedpath
-     * @param string $page
-     *
-     * @return array
-     *
-     * @throws coding_exception
-     * @throws dml_exception
-     */
-    /**
-     * Get file listing.
-     *
-     * @param string $encodedpath
-     * @param string $page
-     * @return array
+     * @param string $encodedpath Encoded path.
+     * @param string $page        Page number.
+     * @return array List of files and folders.
      * @throws coding_exception
      * @throws dml_exception
      */
@@ -91,21 +76,10 @@ class Repository_Omeka extends repository
     /**
      * Return search results.
      *
-     * @param string $searchtext
-     * @param int    $page
-     *
-     * @return array|mixed
-     *
-     * @throws coding_exception
-     * @throws dml_exception
-     */
-    /**
-     * Return search results.
-     *
-     * @param string $searchtext
-     * @param int    $page
-     * @param int|null $itemsetid
-     * @return array|mixed
+     * @param string   $searchtext Search text.
+     * @param int      $page       Page number.
+     * @param int|null $itemsetid  Item set ID.
+     * @return array|mixed Search results.
      * @throws coding_exception
      * @throws dml_exception
      */
@@ -188,14 +162,8 @@ class Repository_Omeka extends repository
     /**
      * Retrieve a paginated list of item sets.
      *
-     * @param  int $page Page number starting at 0.
-     * @return array
-     */
-    /**
-     * Retrieve a paginated list of item sets.
-     *
-     * @param  int $page Page number starting at 0.
-     * @return array
+     * @param int $page Page number starting at 0.
+     * @return array List of item sets.
      */
     private function _listItemSets(int $page = 0): array
     {
@@ -252,21 +220,12 @@ class Repository_Omeka extends repository
     // Puedes eliminar este método si no vas a usar H5P.
 
     /**
-     * Downloads a file from external repository and saves it in temp dir
-     *
-     * @param string $source
-     * @param string $filename
-     *
-     * @return array
-     * @throws Exception
-     */
-    /**
      * Downloads a file from external repository and saves it in temp dir.
      *
-     * @param string $source
-     * @param string $filename
-     * @return array
-     * @throws \moodle_exception
+     * @param string $source   Source URL.
+     * @param string $filename Optional filename.
+     * @return array File path array.
+     * @throws \moodle_exception If download fails.
      */
     public function getFile($source, $filename = "")
     {
@@ -281,12 +240,9 @@ class Repository_Omeka extends repository
     }
 
     /**
-     * Youtube plugin doesn't support global search
-     */
-    /**
-     * Youtube plugin doesn't support global search.
+     * Omeka-S plugin doesn't support global search.
      *
-     * @return bool
+     * @return bool Always false.
      */
     public function globalSearch()
     {
@@ -294,16 +250,7 @@ class Repository_Omeka extends repository
     }
 
     /**
-     * get type option name function
-     *
-     * This function is for module settings.
-     *
-     * @return array
-     */
-    /**
-     * Get type option name function.
-     *
-     * This function is for module settings.
+     * Get type option names for module settings.
      *
      * @return array
      */
@@ -313,11 +260,6 @@ class Repository_Omeka extends repository
         return array_merge(parent::get_type_option_names(), []);
     }
 
-    /**
-     * File types supported by the Omeka repository plugin
-     *
-     * @return array
-     */
     /**
      * File types supported by the Omeka repository plugin.
      *
@@ -332,11 +274,6 @@ class Repository_Omeka extends repository
     }
 
     /**
-     * Omeka repository only returns external links
-     *
-     * @return int
-     */
-    /**
      * Omeka repository only returns external links.
      *
      * @return int
@@ -349,12 +286,7 @@ class Repository_Omeka extends repository
     /**
      * Add fields to the repository instance configuration form.
      *
-     * @param \moodleform $mform
-     */
-    /**
-     * Add fields to the repository instance configuration form.
-     *
-     * @param \moodleform $mform
+     * @param \moodleform $mform The form object.
      * @return void
      */
     public static function instanceConfigForm($mform)
@@ -394,13 +326,7 @@ class Repository_Omeka extends repository
     /**
      * Save settings for repository instance.
      *
-     * @param  array $options settings
-     * @return bool
-     */
-    /**
-     * Save settings for repository instance.
-     *
-     * @param  array $options settings
+     * @param array $options Settings.
      * @return bool
      */
     public function setOption($options = [])
@@ -417,11 +343,6 @@ class Repository_Omeka extends repository
      *
      * @return array
      */
-    /**
-     * Names of the plugin settings stored per instance.
-     *
-     * @return array
-     */
     public static function getInstanceOptionNames()
     {
         return ['baseurl', 'siteid', 'keyidentity', 'keycredential'];
@@ -430,17 +351,9 @@ class Repository_Omeka extends repository
     /**
      * Retrieve list of available sites from an Omeka-S instance.
      *
-     * @param  string $baseurl       Base URL of Omeka-S.
-     * @param  string $keyidentity   Optional API key identity.
-     * @param  string $keycredential Optional API key credential.
-     * @return array siteid => label
-     */
-    /**
-     * Retrieve list of available sites from an Omeka-S instance.
-     *
-     * @param  string $baseurl       Base URL of Omeka-S.
-     * @param  string $keyidentity   Optional API key identity.
-     * @param  string $keycredential Optional API key credential.
+     * @param string $baseurl       Base URL of Omeka-S.
+     * @param string $keyidentity   Optional API key identity.
+     * @param string $keycredential Optional API key credential.
      * @return array siteid => label
      */
     private static function _fetchSites(string $baseurl, string $keyidentity = '', string $keycredential = ''): array
@@ -487,15 +400,8 @@ class Repository_Omeka extends repository
     /**
      * Helper to perform GET requests against the Omeka-S API.
      *
-     * @param  string $path   API path starting with '/'.
-     * @param  array  $params Query parameters.
-     * @return array
-     */
-    /**
-     * Helper to perform GET requests against the Omeka-S API.
-     *
-     * @param  string $path   API path starting with '/'.
-     * @param  array  $params Query parameters.
+     * @param string $path   API path starting with '/'.
+     * @param array  $params Query parameters.
      * @return array
      */
     private function _apiRequest(string $path, array $params = []): array
