@@ -24,14 +24,19 @@ namespace repository_omeka\privacy;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @link      https://github.com/educacioncanarias/moodle-repository_omeka
  */
-class provider implements \core_privacy\local\metadata\null_provider
+class Provider implements \core_privacy\local\metadata\null_provider
 {
     /**
      * Returns the reason why this plugin stores no data.
      *
      * @return string
      */
-    public static function get_reason(): string
+    /**
+     * Returns the reason why this plugin stores no data.
+     *
+     * @return string
+     */
+    public static function getReason(): string
     {
         return get_string('privacy:metadata', 'repository_omeka');
     }
