@@ -1,35 +1,35 @@
-# Plugin Repository Omeka-S
+# Omeka-S Repository Plugin
 
-Este plugin permite conectar Moodle con una o varias instancias de Omeka-S, facilitando la integración y el acceso a los recursos digitales almacenados en Omeka-S desde el selector de archivos de Moodle.
+This plugin allows you to connect Moodle with one or more Omeka-S instances, making it easy to integrate and access digital resources stored in Omeka-S from Moodle's file picker.
 
-## Descripción
+## Description
 
-Con este plugin podrás enlazar recursos de Omeka-S directamente en Moodle, permitiendo a los usuarios buscar, seleccionar y reutilizar objetos digitales y colecciones gestionadas en Omeka-S.
+With this plugin, you can link Omeka-S resources directly in Moodle, allowing users to search, select, and reuse digital objects and collections managed in Omeka-S.
 
-Las búsquedas de archivos se realizan a través de la API REST de Omeka-S y los resultados se obtienen de forma paginada para evitar cargar todos los elementos de una sola vez.
-La navegación comienza mostrando los conjuntos de ítems disponibles y, al seleccionar uno, se listan los elementos que pertenecen a ese conjunto.
+File searches are performed through the Omeka-S REST API, and results are paginated to avoid loading all items at once.
+Navigation starts by displaying the available item sets, and upon selecting one, the items belonging to that set are listed.
 
-## Instalación
+## Installation
 
-1. Copia el plugin en la carpeta `repository/omeka` de tu instalación de Moodle.
-2. Accede a la administración del sitio y finaliza la instalación.
-3. Crea instancias del repositorio indicando la URL de cada instalación Omeka-S, el sitio que quieres mostrar y, si es necesario, sus datos de clave API (key_identity y key_credential). Estas claves son opcionales para acceder a contenido público.
+1. Copy the plugin into the `repository/omeka` folder of your Moodle installation.
+2. Go to Site administration and complete the installation.
+3. Create repository instances by specifying the URL of each Omeka-S installation, the site you want to display, and, if necessary, the API key data (`key_identity` and `key_credential`). These keys are optional for accessing public content.
 
-## Dependencias
+## Dependencies
 
-Este plugin requiere una instancia funcional de [Omeka-S](https://omeka.org/s/) accesible desde Moodle.
+This plugin requires a working instance of [Omeka-S](https://omeka.org/s/) accessible from Moodle.
 
-## Soporte
+## Support
 
-- Para incidencias o sugerencias, utiliza la sección de **Issues** en el repositorio de GitHub.
+- For issues or suggestions, use the **Issues** section in the GitHub repository.
 
-## Licencia
+## License
 
-Este proyecto está licenciado bajo **GPL v3**.
+This project is licensed under **GPL v3**.
 
-## Autor y contacto
+## Author and Contact
 
-Desarrollado por el **Área de Tecnología Educativa** del Gobierno de Canarias.
+Developed by the **Área de Tecnología Educativa** of the Government of the Canary Islands.
 
 - **Email:** [ate.educacion@gobiernodecanarias.org](mailto:ate.educacion@gobiernodecanarias.org)
 - **Web:** [www.gobiernodecanarias.org/educacion](https://www.gobiernodecanarias.org/educacion)
