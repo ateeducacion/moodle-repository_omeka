@@ -1,8 +1,28 @@
+
 services:
+  mariadb:
+    image: mariadb:10.11
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      # Primary DB for Moodle; Omeka DB will be created via init SQL below
+      MYSQL_DATABASE: moodle
+      MYSQL_USER: moodle
+      MYSQL_PASSWORD: moodle
+    volumes:
+      - dbdata:/var/lib/mysql
+      # Creates the Omeka DB + user on first run
+      - ./docker/mysql-init/02-create-omeka.sql:/docker-entrypoint-initdb.d/02-create-omeka.sql:ro
+
   moodle:
     image: erseco/alpine-moodle
+    restart: unless-stopped
+    depends_on:
+      - mariadb
     ports:
-      - 80:8080
+      - "80:8080"
     environment:
       DB_TYPE: mariadb
       DB_HOST: mariadb
@@ -12,54 +32,62 @@ services:
       DB_PORT: 3306
       DB_PREFIX: mdl_
       DEBUG: "true"
-      MOODLE_EMAIL: ${TEST_USER_EMAIL}
+      MOODLE_EMAIL: admin@example.com
       MOODLE_LANGUAGE: es
       MOODLE_SITENAME: Moodle-Omeka
-      MOODLE_USERNAME: ${TEST_USER_USERNAME}
-      MOODLE_PASSWORD: ${TEST_USER_PASSWORD}
+      MOODLE_USERNAME: admin@example.com
+      MOODLE_PASSWORD: PLEASE_CHANGEME
       PRE_CONFIGURE_COMMANDS: |
         echo 'This is a pre-configure command'
       POST_CONFIGURE_COMMANDS: |
         echo 'This is a post-configure command'
         echo 'Forcing upgrade to re-install exe plugin...'
         php admin/cli/upgrade.php --non-interactive
-    depends_on:
-      - mariadb
     volumes:
       - moodledata:/var/moodledata
+      # Example: expose an “omeka” repository folder inside Moodle (optional)
       - .:/var/www/html/repository/omeka
-  mariadb:
-    image: mariadb:10.11
-    ports:
-      - 3306:3306
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: moodle
-      MYSQL_USER: moodle
-      MYSQL_PASSWORD: moodle
-    volumes:
-      - dbdata:/var/lib/mysql
 
-  omekas:
-    image: ghcr.io/erseco/omeka-s-docker:master
+  omeka:
+    image: erseco/alpine-omeka-s:latest
     restart: unless-stopped
+    depends_on:
+      - mariadb
+    # Use another host port to avoid clash with Moodle (both expose 8080 internally)
     ports:
-      - 81:80
+      - "8080:8080"
+    environment:
+      # DB (separate database & user)
+      DB_HOST: mariadb
+      DB_NAME: omeka_s
+      DB_USER: omeka_s
+      DB_PASSWORD: omeka_s
+      DB_PORT: 3306
+
+      # Omeka initial admin + site
+      OMEKA_ADMIN_EMAIL: admin@example.com
+      OMEKA_ADMIN_NAME: "Site Administrator"
+      OMEKA_ADMIN_PASSWORD: PLEASE_CHANGEME
+      OMEKA_SITE_TITLE: "Omeka S Sample Site"
+
+      # Optional but recommended so CLI jobs build correct URLs
+      SITE_URL: http://localhost:8080
+      APPLICATION_ENV: development
+
+      # Auto-install theme/modules (names or URLs). CSVImport must be present.
+      OMEKA_THEMES: "default"
+      OMEKA_MODULES: |
+        Common
+        EasyAdmin
+        Adminer
+        ThreeDViewer
+        # LearningObject
+
+      # Auto-import sample data on first boot
+      OMEKA_CSV_IMPORT_FILE: /data/sample_data.csv
     volumes:
       - omekas_data:/var/www/html/volume:Z
-    environment:
-      MYSQL_DATABASE: moodle
-      MYSQL_USER: moodle
-      MYSQL_PASSWORD: moodle
-      MYSQL_HOST: mariadb
-      APPLICATION_ENV: development
-      OMEKA_THEMES: https://github.com/omeka-s-themes/default/releases/download/v1.9.1/theme-default-v1.9.1.zip
-      OMEKA_MODULES: |
-        https://github.com/Daniel-KM/Omeka-S-module-Common/releases/download/3.4.66/Common-3.4.66.zip      
-        https://github.com/Daniel-KM/Omeka-S-module-EasyAdmin/releases/download/3.4.29/EasyAdmin-3.4.29.zip
-        https://github.com/Daniel-KM/Omeka-S-module-Adminer/releases/download/3.4.5-4.8.4/Adminer-3.4.5-4.8.4.zip
-        https://github.com/ateeducacion/omeka-s-ThreeDViewer/releases/download/v1.0.4/ThreeDViewer-v1.0.4.zip
-        https://github.com/ateeducacion/OmekaS-LearningObject/releases/download/v1.0.0/LearningObjectAdapter-v1.0.0.zip
+      - ./data:/data:ro
 
 volumes:
   moodledata:
