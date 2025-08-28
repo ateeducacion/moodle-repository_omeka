@@ -95,6 +95,21 @@ check: ci-deps
 	echo -e "\033[36m▶ Behat features…\033[0m" && \
 	./ci/bin/moodle-plugin-ci behat --profile chrome
 
+behat: ci-deps
+	@echo -e "\033[36m▶ Initialising Moodle for plugin CI…\033[0m" && \
+	./ci/bin/moodle-plugin-ci install \
+	  --plugin . \
+	  --branch=$(BRANCH) \
+	  --db-type=$(DB_TYPE) \
+	  --db-host=$(DB_HOST) \
+	  --db-port=$(DB_PORT) \
+	  --db-user=$(DB_USER) \
+	  --db-pass=$(DB_PASS) \
+	  --db-name=$(DB_NAME) && \
+	\
+	echo -e "\033[36m▶ Behat features…\033[0m" && \
+	./ci/bin/moodle-plugin-ci behat --profile chrome --tags=@repository_omeka
+
 
 # Clean environment
 clean: check-docker check-env
