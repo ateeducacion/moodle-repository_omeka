@@ -66,13 +66,159 @@ class repository_omeka extends repository {
      */
     public function get_listing($encodedpath = "", $page = "") {
         $path = $encodedpath !== '' ? base64_decode($encodedpath) : '';
+        $page = (int)$page;
+
         if ($path === '') {
-            return $this->list_item_sets((int)$page);
+            // Root: list item sets.
+            return $this->list_item_sets($page);
         }
 
-        $itemsetid = (int)$path;
-        return $this->search("", (int)$page, $itemsetid);
+        // Route decoding: set:<id> or item:<id>.
+        if (preg_match('/^(set|item):(\d+)$/', $path, $m)) {
+            $type = $m[1];
+            $id = (int)$m[2];
+            if ($type === 'set') {
+                return $this->list_items_in_set($id, $page);
+            }
+            return $this->list_media_in_item($id, $page);
+        }
+
+        // Backward compatibility: numeric path == item set id.
+        if (ctype_digit($path)) {
+            return $this->list_items_in_set((int)$path, $page);
+        }
+
+        // Fallback to search in case of unexpected path.
+        return $this->search("", $page, null);
     }
+
+
+/**
+ * List items inside an item set.
+ *
+ * @param int $setid
+ * @param int $page
+ * @return array
+ */
+private function list_items_in_set(int $setid, int $page = 0): array {
+    $perpage = 20;
+    $params = [
+        'page' => $page + 1,
+        'per_page' => $perpage,
+        'item_set_id' => $setid,
+    ];
+    $siteid = (int)$this->get_option('siteid');
+    if ($siteid) {
+        $params['site_id'] = $siteid;
+    }
+
+    $items = $this->api_request('/api/items', $params);
+    $total = (int)($this->get_header_value('Omeka-S-Total-Results') ?? 0);
+
+    $list = [];
+    foreach (is_array($items) ? $items : [] as $item) {
+        $title = $item['o:title'] ?? ('Item ' . $item['o:id']);
+        $thumb = '';
+        if (!empty($item['thumbnail_display_urls']['medium'])) {
+            $thumb = $item['thumbnail_display_urls']['medium'];
+        } elseif (!empty($item['o:media'][0])) {
+            // Try to fetch first media thumbnail as a fallback.
+            $mediainfo = $this->api_request('/api/media/' . $item['o:media'][0]['o:id']);
+            $thumb = $mediainfo['thumbnail_display_urls']['medium'] ?? '';
+        }
+        // Items behave like folders leading to their media.
+        $list[] = [
+            'title' => $title,
+            'path' => base64_encode('item:' . (string)$item['o:id']),
+            'children' => [],
+            'thumbnail' => $thumb,
+            'thumbnail_height' => 90,
+            'thumbnail_width' => 90,
+        ];
+    }
+
+    // Breadcrumbs.
+    $itemset = $this->api_request('/api/item_sets/' . $setid);
+    $settitle = $itemset['o:title'] ?? ('Item set ' . $setid);
+
+    return [
+        'dynload' => true,
+        'nologin' => true,
+        'page' => $page,
+        'norefresh' => false,
+        'nosearch' => false,
+        'manage' => rtrim($this->get_option('baseurl'), '/'),
+        'list' => $list,
+        'path' => [
+            [ 'name' => get_string('pluginname', 'repository_omeka'), 'path' => '' ],
+            [ 'name' => $settitle, 'path' => base64_encode('set:' . (string)$setid) ],
+        ],
+        'pages' => (($page + 1) * $perpage < $total) ? -1 : $page,
+    ];
+}
+
+/**
+ * List media files of a given item.
+ *
+ * @param int $itemid
+ * @param int $page
+ * @return array
+ */
+private function list_media_in_item(int $itemid, int $page = 0): array {
+    $perpage = 20;
+    $params = [
+        'page' => $page + 1,
+        'per_page' => $perpage,
+        'item_id' => $itemid,
+    ];
+
+    $media = $this->api_request('/api/media', $params);
+    $total = (int)($this->get_header_value('Omeka-S-Total-Results') ?? 0);
+
+    $list = [];
+    foreach (is_array($media) ? $media : [] as $m) {
+        $title = $m['o:title'] ?? ('Media ' . $m['o:id']);
+        $fileurl = $m['o:original_url'] ?? $m['o:source'] ?? '';
+        if (!$fileurl) {
+            continue;
+        }
+        $thumb = $m['thumbnail_display_urls']['medium'] ?? '';
+        $list[] = [
+            'title' => $title,
+            'source' => $fileurl,          // This makes it a "file", ready to pick.
+            'thumbnail' => $thumb,
+            'thumbnail_height' => 90,
+            'thumbnail_width' => 90,
+        ];
+    }
+
+    // Breadcrumbs.
+    $item = $this->api_request('/api/items/' . $itemid);
+    $setid = $item['o:item_set'][0]['o:id'] ?? null;
+    $itemtitle = $item['o:title'] ?? ('Item ' . $itemid);
+
+    $path = [
+        [ 'name' => get_string('pluginname', 'repository_omeka'), 'path' => '' ],
+    ];
+    if ($setid) {
+        $itemset = $this->api_request('/api/item_sets/' . $setid);
+        $settitle = $itemset['o:title'] ?? ('Item set ' . $setid);
+        $path[] = [ 'name' => $settitle, 'path' => base64_encode('set:' . (string)$setid) ];
+    }
+    $path[] = [ 'name' => $itemtitle, 'path' => base64_encode('item:' . (string)$itemid) ];
+
+    return [
+        'dynload' => true,
+        'nologin' => true,
+        'page' => $page,
+        'norefresh' => false,
+        'nosearch' => false,
+        'manage' => rtrim($this->get_option('baseurl'), '/'),
+        'list' => $list,
+        'path' => $path,
+        'pages' => (($page + 1) * $perpage < $total) ? -1 : $page,
+    ];
+}
 
     /**
      * Return search results.
@@ -92,7 +238,17 @@ class repository_omeka extends repository {
             'per_page' => $perpage,
         ];
         if ($searchtext !== '') {
-            $params['search'] = $searchtext;
+            if (preg_match('/^([a-z0-9:_-]+)\s*:\s*(.+)$/i', $searchtext, $m)) {
+                // Advanced search: property:value
+                $params['property'][] = [
+                    'property' => $m[1],
+                    'type' => 'in',
+                    'text' => trim($m[2]),
+                ];
+            } else {
+                // Broad search
+                $params['fulltext_search'] = $searchtext;
+            }
         }
         $siteid = (int)$this->get_option('siteid');
         if ($siteid) {
@@ -285,6 +441,8 @@ class repository_omeka extends repository {
      * @param \moodleform $mform
      */
     public static function instance_config_form($mform) {
+        global $PAGE;
+
         $mform->addElement('text', 'baseurl', get_string('baseurl', 'repository_omeka'));
         $mform->addRule('baseurl', get_string('required'), 'required', null, 'client');
         $mform->setType('baseurl', PARAM_URL);
@@ -293,20 +451,22 @@ class repository_omeka extends repository {
         $keyidentity = optional_param('keyidentity', '', PARAM_RAW);
         $keycredential = optional_param('keycredential', '', PARAM_RAW);
         $instanceid = optional_param('id', 0, PARAM_INT);
+
         if (!$baseurl && $instanceid) {
             $instance = repository::get_instance($instanceid);
             $baseurl = (string)$instance->get_option('baseurl');
             $keyidentity = (string)$instance->get_option('keyidentity');
             $keycredential = (string)$instance->get_option('keycredential');
         }
+
+        // Initial options if available.
         $sites = self::fetch_sites($baseurl, $keyidentity, $keycredential);
-        if ($sites) {
-            $mform->addElement('select', 'siteid', get_string('site', 'repository_omeka'), $sites);
-        } else {
-            $mform->addElement('text', 'siteid', get_string('site', 'repository_omeka'));
-        }
+        $siteoptions = $sites ?: ['' => get_string('choosedots')];
+
+        $mform->addElement('select', 'siteid', get_string('site', 'repository_omeka'), $siteoptions);
         $mform->setType('siteid', PARAM_INT);
         $mform->addHelpButton('siteid', 'site', 'repository_omeka');
+        $mform->disabledIf('siteid', 'baseurl', 'eq', '');
 
         $mform->addElement('text', 'keyidentity', get_string('keyidentity', 'repository_omeka'));
         $mform->setType('keyidentity', PARAM_TEXT);
@@ -315,7 +475,52 @@ class repository_omeka extends repository {
         $mform->addElement('text', 'keycredential', get_string('keycredential', 'repository_omeka'));
         $mform->setType('keycredential', PARAM_TEXT);
         $mform->addHelpButton('keycredential', 'keycredential', 'repository_omeka');
+
+        // Init AMD to live-refresh the site select via AJAX.
+        $PAGE->requires->js_call_amd('repository_omeka/omekasites', 'init', []);
+
+
+// $mform->addElement('html', \html_writer::script("
+// require(['core/first'], function() {
+//   require(['repository_omeka/omekasites'], function(M){ M.init && M.init(); });
+// });
+// "));
+
+// $mform->addElement('html', html_writer::script("
+// require(['core/ajax'], function(Ajax) {
+//   const baseurlEl = document.getElementById('id_baseurl');
+//   const keyIdEl = document.getElementById('id_keyidentity');
+//   const keyCredEl = document.getElementById('id_keycredential');
+//   const selectEl = document.getElementById('id_siteid');
+//   if (!baseurlEl || !selectEl) { return; }
+//   const fetchSites = () => {
+//     const baseurl = (baseurlEl.value || '').trim();
+//     const keyidentity = keyIdEl ? keyIdEl.value : '';
+//     const keycredential = keyCredEl ? keyCredEl.value : '';
+//     if (!baseurl) { selectEl.innerHTML = '<option value=\"\">' + M.util.get_string('choosedots', 'moodle') + '</option>'; selectEl.disabled = true; return; }
+//     Ajax.call([{ methodname: 'repository_omeka_list_sites', args: { baseurl, keyidentity, keycredential } }])[0]
+//       .then(r => {
+//         selectEl.disabled = false;
+//         selectEl.innerHTML = '';
+//         (r.options || []).forEach(o => selectEl.add(new Option(o.label, o.value)));
+//         if (!r.options || !r.options.length) { selectEl.add(new Option(M.util.get_string('choosedots','moodle'), '')); }
+//       })
+//       .catch(console.error);
+//   };
+//   ['change','input','blur'].forEach(ev => {
+//     baseurlEl.addEventListener(ev, fetchSites);
+//     if (keyIdEl)   keyIdEl.addEventListener(ev, fetchSites);
+//     if (keyCredEl) keyCredEl.addEventListener(ev, fetchSites);
+//   });
+//   fetchSites();
+// });
+// "));
+
+
+
+
     }
+
 
     /**
      * Save settings for repository instance.
@@ -348,7 +553,7 @@ class repository_omeka extends repository {
      * @param string $keycredential Optional API key credential.
      * @return array siteid => label
      */
-    private static function fetch_sites(string $baseurl, string $keyidentity = '', string $keycredential = ''): array {
+    public static function fetch_sites(string $baseurl, string $keyidentity = '', string $keycredential = ''): array {
         $baseurl = rtrim($baseurl, '/');
         if (!$baseurl) {
             return [];

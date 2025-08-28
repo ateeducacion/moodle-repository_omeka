@@ -41,15 +41,24 @@ services:
         echo 'This is a pre-configure command'
       POST_CONFIGURE_COMMANDS: |
         echo 'This is a post-configure command'
-        echo 'Forcing upgrade to re-install exe plugin...'
+        echo 'Forcing upgrade to re-install the plugin...'
         php admin/cli/upgrade.php --non-interactive
+        if ! moosh course-list "shortname='omeka-test'" | grep -q 'omeka-test'; then
+          moosh course-create --category 1 --fullname "Test Course for Omeka" --shortname "omeka-test"
+        fi
+        echo 'Configuring Omeka repository...'
+        # moosh plugin-enable repository_omeka
+        # moosh repository-add omeka "Omeka S" --baseurl=http://omeka:8080 --siteid=1 || true
+        echo 'Ensuring demo course exists...'
+        moosh course-create -r -c 1 -f "Curso de prueba" omeka-demo || true
+
     volumes:
       - moodledata:/var/moodledata
       # Example: expose an “omeka” repository folder inside Moodle (optional)
       - .:/var/www/html/repository/omeka
 
   omeka:
-    image: erseco/alpine-omeka-s:latest
+    image: erseco/alpine-omeka-s:develop
     restart: unless-stopped
     depends_on:
       - mariadb
