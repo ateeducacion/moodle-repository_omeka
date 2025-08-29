@@ -23,5 +23,6 @@ config.php
 .vscode/
 .aider*
 ci/
-
 .ci/
+
+node_modules/

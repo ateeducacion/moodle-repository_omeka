@@ -1,0 +1,13 @@
+filter:
+  notPaths:
+    - moodle
+    - .ci
+    - ci
+    - docker
+    - data
+    - moodledata
+    - node_modules
+    - vendor
+  notNames:
+    - '*.min.js'
+    - '*.map'
