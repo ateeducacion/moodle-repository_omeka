@@ -27,11 +27,12 @@ defined('MOODLE_INTERNAL') || die();
 require_once("{$CFG->dirroot}/repository/lib.php");
 
 /**
- * Repository omeka class
+ * Repository omeka class.
  *
  * @package   repository_omeka
  * @copyright 2025 Área de Tecnología Educativa <ate.educacion@gobiernodecanarias.org>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  */
 class repository_omeka extends repository {
 
@@ -93,55 +94,55 @@ class repository_omeka extends repository {
     }
 
 
-/**
- * List items inside an item set.
- *
- * @param int $setid
- * @param int $page
- * @return array
- */
-private function list_items_in_set(int $setid, int $page = 0): array {
-    $perpage = 20;
-    $params = [
+    /**
+     * List items inside an item set.
+     *
+     * @param int $setid
+     * @param int $page
+     * @return array
+     */
+    private function list_items_in_set(int $setid, int $page = 0): array {
+        $perpage = 20;
+        $params = [
         'page' => $page + 1,
         'per_page' => $perpage,
         'item_set_id' => $setid,
-    ];
-    $siteid = (int)$this->get_option('siteid');
-    if ($siteid) {
-        $params['site_id'] = $siteid;
-    }
-
-    $items = $this->api_request('/api/items', $params);
-    $total = (int)($this->get_header_value('Omeka-S-Total-Results') ?? 0);
-
-    $list = [];
-    foreach (is_array($items) ? $items : [] as $item) {
-        $title = $item['o:title'] ?? ('Item ' . $item['o:id']);
-        $thumb = '';
-        if (!empty($item['thumbnail_display_urls']['medium'])) {
-            $thumb = $item['thumbnail_display_urls']['medium'];
-        } elseif (!empty($item['o:media'][0])) {
-            // Try to fetch first media thumbnail as a fallback.
-            $mediainfo = $this->api_request('/api/media/' . $item['o:media'][0]['o:id']);
-            $thumb = $mediainfo['thumbnail_display_urls']['medium'] ?? '';
+        ];
+        $siteid = (int)$this->get_option('siteid');
+        if ($siteid) {
+            $params['site_id'] = $siteid;
         }
-        // Items behave like folders leading to their media.
-        $list[] = [
+
+        $items = $this->api_request('/api/items', $params);
+        $total = (int)($this->get_header_value('Omeka-S-Total-Results') ?? 0);
+
+        $list = [];
+        foreach (is_array($items) ? $items : [] as $item) {
+            $title = $item['o:title'] ?? ('Item ' . $item['o:id']);
+            $thumb = '';
+            if (!empty($item['thumbnail_display_urls']['medium'])) {
+                $thumb = $item['thumbnail_display_urls']['medium'];
+            } else if (!empty($item['o:media'][0])) {
+                // Try to fetch first media thumbnail as a fallback.
+                $mediainfo = $this->api_request('/api/media/' . $item['o:media'][0]['o:id']);
+                $thumb = $mediainfo['thumbnail_display_urls']['medium'] ?? '';
+            }
+            // Items behave like folders leading to their media.
+            $list[] = [
             'title' => $title,
             'path' => base64_encode('item:' . (string)$item['o:id']),
             'children' => [],
             'thumbnail' => $thumb,
             'thumbnail_height' => 90,
             'thumbnail_width' => 90,
-        ];
-    }
+            ];
+        }
 
-    // Breadcrumbs.
-    $itemset = $this->api_request('/api/item_sets/' . $setid);
-    $settitle = $itemset['o:title'] ?? ('Item set ' . $setid);
+        // Breadcrumbs.
+        $itemset = $this->api_request('/api/item_sets/' . $setid);
+        $settitle = $itemset['o:title'] ?? ('Item set ' . $setid);
 
-    return [
+        return [
         'dynload' => true,
         'nologin' => true,
         'page' => $page,
@@ -154,60 +155,60 @@ private function list_items_in_set(int $setid, int $page = 0): array {
             [ 'name' => $settitle, 'path' => base64_encode('set:' . (string)$setid) ],
         ],
         'pages' => (($page + 1) * $perpage < $total) ? -1 : $page,
-    ];
-}
+        ];
+    }
 
-/**
- * List media files of a given item.
- *
- * @param int $itemid
- * @param int $page
- * @return array
- */
-private function list_media_in_item(int $itemid, int $page = 0): array {
-    $perpage = 20;
-    $params = [
+    /**
+     * List media files of a given item.
+     *
+     * @param int $itemid
+     * @param int $page
+     * @return array
+     */
+    private function list_media_in_item(int $itemid, int $page = 0): array {
+        $perpage = 20;
+        $params = [
         'page' => $page + 1,
         'per_page' => $perpage,
         'item_id' => $itemid,
-    ];
+        ];
 
-    $media = $this->api_request('/api/media', $params);
-    $total = (int)($this->get_header_value('Omeka-S-Total-Results') ?? 0);
+        $media = $this->api_request('/api/media', $params);
+        $total = (int)($this->get_header_value('Omeka-S-Total-Results') ?? 0);
 
-    $list = [];
-    foreach (is_array($media) ? $media : [] as $m) {
-        $title = $m['o:title'] ?? ('Media ' . $m['o:id']);
-        $fileurl = $m['o:original_url'] ?? $m['o:source'] ?? '';
-        if (!$fileurl) {
-            continue;
-        }
-        $thumb = $m['thumbnail_display_urls']['medium'] ?? '';
-        $list[] = [
+        $list = [];
+        foreach (is_array($media) ? $media : [] as $m) {
+            $title = $m['o:title'] ?? ('Media ' . $m['o:id']);
+            $fileurl = $m['o:original_url'] ?? $m['o:source'] ?? '';
+            if (!$fileurl) {
+                continue;
+            }
+            $thumb = $m['thumbnail_display_urls']['medium'] ?? '';
+            $list[] = [
             'title' => $title,
             'source' => $fileurl,          // This makes it a "file", ready to pick.
             'thumbnail' => $thumb,
             'thumbnail_height' => 90,
             'thumbnail_width' => 90,
-        ];
-    }
+            ];
+        }
 
-    // Breadcrumbs.
-    $item = $this->api_request('/api/items/' . $itemid);
-    $setid = $item['o:item_set'][0]['o:id'] ?? null;
-    $itemtitle = $item['o:title'] ?? ('Item ' . $itemid);
+        // Breadcrumbs.
+        $item = $this->api_request('/api/items/' . $itemid);
+        $setid = $item['o:item_set'][0]['o:id'] ?? null;
+        $itemtitle = $item['o:title'] ?? ('Item ' . $itemid);
 
-    $path = [
+        $path = [
         [ 'name' => get_string('pluginname', 'repository_omeka'), 'path' => '' ],
-    ];
-    if ($setid) {
-        $itemset = $this->api_request('/api/item_sets/' . $setid);
-        $settitle = $itemset['o:title'] ?? ('Item set ' . $setid);
-        $path[] = [ 'name' => $settitle, 'path' => base64_encode('set:' . (string)$setid) ];
-    }
-    $path[] = [ 'name' => $itemtitle, 'path' => base64_encode('item:' . (string)$itemid) ];
+        ];
+        if ($setid) {
+            $itemset = $this->api_request('/api/item_sets/' . $setid);
+            $settitle = $itemset['o:title'] ?? ('Item set ' . $setid);
+            $path[] = [ 'name' => $settitle, 'path' => base64_encode('set:' . (string)$setid) ];
+        }
+        $path[] = [ 'name' => $itemtitle, 'path' => base64_encode('item:' . (string)$itemid) ];
 
-    return [
+        return [
         'dynload' => true,
         'nologin' => true,
         'page' => $page,
@@ -217,8 +218,8 @@ private function list_media_in_item(int $itemid, int $page = 0): array {
         'list' => $list,
         'path' => $path,
         'pages' => (($page + 1) * $perpage < $total) ? -1 : $page,
-    ];
-}
+        ];
+    }
 
     /**
      * Return search results.
@@ -233,75 +234,13 @@ private function list_media_in_item(int $itemid, int $page = 0): array {
      */
     public function search($searchtext, $page = 0, ?int $itemsetid = null) {
         $perpage = 20;
-        $params = [
-            'page' => $page + 1,
-            'per_page' => $perpage,
-        ];
-        if ($searchtext !== '') {
-            if (preg_match('/^([a-z0-9:_-]+)\s*:\s*(.+)$/i', $searchtext, $m)) {
-                // Advanced search: property:value
-                $params['property'][] = [
-                    'property' => $m[1],
-                    'type' => 'in',
-                    'text' => trim($m[2]),
-                ];
-            } else {
-                // Broad search
-                $params['fulltext_search'] = $searchtext;
-            }
-        }
-        $siteid = (int)$this->get_option('siteid');
-        if ($siteid) {
-            $params['site_id'] = $siteid;
-        }
-        if ($itemsetid) {
-            $params['item_set_id'] = $itemsetid;
-        }
+        $params = $this->build_search_params((string)$searchtext, (int)$page, $itemsetid);
+
         $items = $this->api_request('/api/items', $params);
         $total = (int)($this->get_header_value('Omeka-S-Total-Results') ?? 0);
 
-        $list = [];
-        if (is_array($items)) {
-            foreach ($items as $item) {
-                $title = $item['o:title'] ?? 'Item ' . $item['o:id'];
-                $media = $item['o:media'][0] ?? null;
-                if (!$media) {
-                    continue;
-                }
-
-                $mediainfo = $this->api_request('/api/media/' . $media['o:id']);
-                if (!$mediainfo) {
-                    continue;
-                }
-
-                $fileurl = $mediainfo['o:original_url'] ?? $mediainfo['o:source'] ?? '';
-                if (!$fileurl) {
-                    continue;
-                }
-                $thumb = $mediainfo['thumbnail_display_urls']['medium'] ?? '';
-                $list[] = [
-                    'title' => $title,
-                    'source' => $fileurl,
-                    'thumbnail' => $thumb,
-                    'thumbnail_height' => 90,
-                    'thumbnail_width' => 90,
-                ];
-            }
-        }
-
-        $pathinfo = [];
-        if ($itemsetid) {
-            $itemset = $this->api_request('/api/item_sets/' . $itemsetid);
-            $title = $itemset['o:title'] ?? 'Item set ' . $itemsetid;
-            $pathinfo[] = [
-                'name' => get_string('pluginname', 'repository_omeka'),
-                'path' => ''
-            ];
-            $pathinfo[] = [
-                'name' => $title,
-                'path' => base64_encode((string)$itemsetid)
-            ];
-        }
+        $list = $this->build_item_list(is_array($items) ? $items : []);
+        $pathinfo = $itemsetid ? $this->build_pathinfo_for_itemset((int)$itemsetid) : [];
 
         return [
             'dynload' => true,
@@ -313,6 +252,95 @@ private function list_media_in_item(int $itemid, int $page = 0): array {
             'list' => $list,
             'path' => $pathinfo,
             'pages' => (($page + 1) * $perpage < $total) ? -1 : $page,
+        ];
+    }
+
+    /**
+     * Build search parameters for Omeka-S items endpoint.
+     *
+     * @param string $searchtext Search expression.
+     * @param int $page Page number (0-based).
+     * @param int|null $itemsetid Optional item set filter.
+     * @return array
+     */
+    private function build_search_params(string $searchtext, int $page, ?int $itemsetid): array {
+        $params = [
+            'page' => $page + 1,
+            'per_page' => 20,
+        ];
+        if ($searchtext !== '') {
+            if (preg_match('/^([a-z0-9:_-]+)\s*:\\s*(.+)$/i', $searchtext, $m)) {
+                $params['property'][] = [
+                    'property' => $m[1],
+                    'type' => 'in',
+                    'text' => trim($m[2]),
+                ];
+            } else {
+                $params['fulltext_search'] = $searchtext;
+            }
+        }
+        $siteid = (int)$this->get_option('siteid');
+        if ($siteid) {
+            $params['site_id'] = $siteid;
+        }
+        if (!empty($itemsetid)) {
+            $params['item_set_id'] = (int)$itemsetid;
+        }
+        return $params;
+    }
+
+    /**
+     * Build repository browser entries for a list of Omeka items.
+     *
+     * @param array $items Items as returned by Omeka-S.
+     * @return array
+     */
+    private function build_item_list(array $items): array {
+        $list = [];
+        foreach ($items as $item) {
+            $title = $item['o:title'] ?? ('Item ' . ($item['o:id'] ?? ''));
+            $media = $item['o:media'][0] ?? null;
+            if (!$media) {
+                continue;
+            }
+            $mediainfo = $this->api_request('/api/media/' . $media['o:id']);
+            if (!$mediainfo) {
+                continue;
+            }
+            $fileurl = $mediainfo['o:original_url'] ?? ($mediainfo['o:source'] ?? '');
+            if (!$fileurl) {
+                continue;
+            }
+            $thumb = $mediainfo['thumbnail_display_urls']['medium'] ?? '';
+            $list[] = [
+                'title' => $title,
+                'source' => $fileurl,
+                'thumbnail' => $thumb,
+                'thumbnail_height' => 90,
+                'thumbnail_width' => 90,
+            ];
+        }
+        return $list;
+    }
+
+    /**
+     * Build breadcrumb path info for an item set selection.
+     *
+     * @param int $itemsetid Item set id.
+     * @return array
+     */
+    private function build_pathinfo_for_itemset(int $itemsetid): array {
+        $itemset = $this->api_request('/api/item_sets/' . $itemsetid);
+        $title = $itemset['o:title'] ?? ('Item set ' . $itemsetid);
+        return [
+            [
+                'name' => get_string('pluginname', 'repository_omeka'),
+                'path' => '',
+            ],
+            [
+                'name' => $title,
+                'path' => base64_encode((string)$itemsetid),
+            ],
         ];
     }
 
@@ -479,46 +507,6 @@ private function list_media_in_item(int $itemid, int $page = 0): array {
         // Init AMD to live-refresh the site select via AJAX.
         $PAGE->requires->js_call_amd('repository_omeka/omekasites', 'init', []);
 
-
-// $mform->addElement('html', \html_writer::script("
-// require(['core/first'], function() {
-//   require(['repository_omeka/omekasites'], function(M){ M.init && M.init(); });
-// });
-// "));
-
-// $mform->addElement('html', html_writer::script("
-// require(['core/ajax'], function(Ajax) {
-//   const baseurlEl = document.getElementById('id_baseurl');
-//   const keyIdEl = document.getElementById('id_keyidentity');
-//   const keyCredEl = document.getElementById('id_keycredential');
-//   const selectEl = document.getElementById('id_siteid');
-//   if (!baseurlEl || !selectEl) { return; }
-//   const fetchSites = () => {
-//     const baseurl = (baseurlEl.value || '').trim();
-//     const keyidentity = keyIdEl ? keyIdEl.value : '';
-//     const keycredential = keyCredEl ? keyCredEl.value : '';
-//     if (!baseurl) { selectEl.innerHTML = '<option value=\"\">' + M.util.get_string('choosedots', 'moodle') + '</option>'; selectEl.disabled = true; return; }
-//     Ajax.call([{ methodname: 'repository_omeka_list_sites', args: { baseurl, keyidentity, keycredential } }])[0]
-//       .then(r => {
-//         selectEl.disabled = false;
-//         selectEl.innerHTML = '';
-//         (r.options || []).forEach(o => selectEl.add(new Option(o.label, o.value)));
-//         if (!r.options || !r.options.length) { selectEl.add(new Option(M.util.get_string('choosedots','moodle'), '')); }
-//       })
-//       .catch(console.error);
-//   };
-//   ['change','input','blur'].forEach(ev => {
-//     baseurlEl.addEventListener(ev, fetchSites);
-//     if (keyIdEl)   keyIdEl.addEventListener(ev, fetchSites);
-//     if (keyCredEl) keyCredEl.addEventListener(ev, fetchSites);
-//   });
-//   fetchSites();
-// });
-// "));
-
-
-
-
     }
 
 
@@ -558,6 +546,24 @@ private function list_media_in_item(int $itemid, int $page = 0): array {
         if (!$baseurl) {
             return [];
         }
+        $params = self::build_site_params($keyidentity, $keycredential);
+        $url = $baseurl . '/api/sites' . (!empty($params) ? ('?' . http_build_query($params)) : '');
+        $content = @file_get_contents($url);
+        if ($content === false) {
+            return [];
+        }
+        $data = json_decode($content, true);
+        return is_array($data) ? self::parse_sites($data) : [];
+    }
+
+    /**
+     * Build request params for listing sites.
+     *
+     * @param string $keyidentity
+     * @param string $keycredential
+     * @return array
+     */
+    private static function build_site_params(string $keyidentity, string $keycredential): array {
         $params = [];
         if ($keyidentity !== '') {
             $params['key_identity'] = $keyidentity;
@@ -565,18 +571,16 @@ private function list_media_in_item(int $itemid, int $page = 0): array {
         if ($keycredential !== '') {
             $params['key_credential'] = $keycredential;
         }
-        $url = $baseurl . '/api/sites';
-        if (!empty($params)) {
-            $url .= '?' . http_build_query($params);
-        }
-        $content = @file_get_contents($url);
-        if ($content === false) {
-            return [];
-        }
-        $data = json_decode($content, true);
-        if (!is_array($data)) {
-            return [];
-        }
+        return $params;
+    }
+
+    /**
+     * Parse sites response into id => label map.
+     *
+     * @param array $data
+     * @return array
+     */
+    private static function parse_sites(array $data): array {
         $list = [];
         foreach ($data as $site) {
             if (!isset($site['o:id'])) {
@@ -584,10 +588,7 @@ private function list_media_in_item(int $itemid, int $page = 0): array {
             }
             $title = $site['o:title'] ?? ('Site ' . $site['o:id']);
             $slug = $site['o:slug'] ?? '';
-            $label = $title;
-            if ($slug !== '') {
-                $label .= " ({$slug})";
-            }
+            $label = $title . ($slug !== '' ? " ({$slug})" : '');
             $list[$site['o:id']] = $label;
         }
         return $list;

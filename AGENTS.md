@@ -1,37 +1,39 @@
+# Repository Guidelines
 
-# Correct use of phpcs and phpcbf with moodle-plugin-ci
+## Project Structure & Module Organization
+- Core: `lib.php`, `version.php`, `ajax.php`.
+- PHP classes: `classes/` (namespaced `repository_omeka\…`).
+- DB and privacy: `db/`, `classes/privacy/`.
+- UI assets: `pix/`, `styles.scss|css`, `amd/` (JS AMD modules).
+- Localization: `lang/`.
+- Tests: `tests/behat/` (Behat steps/features).
+- Dev tooling: `Makefile`, `docker-compose.yml`, `ci/` (local moodle-plugin-ci).
 
-To analyze and fix your Moodle plugin code according to Moodle standards, you should use the `phpcs` (PHP CodeSniffer) and `phpcbf` (PHP Code Beautifier and Fixer) tools included in the `moodle-plugin-ci` environment.
+## Build, Test, and Development Commands
+- `make upd` / `make down`: Start/stop Docker stack (Moodle, Omeka-S, DB).
+- `make shell`: Open a shell in the Moodle container.
+- `make ci-deps`: Install `ci/` helper (moodle-plugin-ci).
+- `make check`: Run full CI suite (lint, PHPCS, validate, savepoints, mustache, PHPUnit, Behat).
+- `make behat`: Run tagged Behat scenarios for this plugin.
+- `make package VERSION=X.Y.Z`: Create a zip release.
 
-## Running phpcs
+## Coding Style & Naming Conventions
+- Standard: Moodle PHP guidelines (4 spaces, no tabs).
+- Linting: `./ci/bin/moodle-plugin-ci phpcs --standard=moodle`.
+- Auto-fix: `../moodle-plugin-ci/vendor/bin/phpcbf --standard=moodle path.php` (or PHAR variant).
+- Namespaces: `repository_omeka\…`; class files in `classes/` follow Moodle autoload rules.
+- Strings in `lang/en/repository_omeka.php`; JS under `amd/src/` with AMD module names.
 
-To analyze specific files or directories and check if they comply with Moodle standards, run:
+## Testing Guidelines
+- Behat: place features/steps in `tests/behat/`; tag scenarios `@repository_omeka`.
+- Run Behat: `make behat` (or `./ci/bin/moodle-plugin-ci behat --profile chrome`).
+- PHPUnit: add tests under `tests/phpunit/*_test.php` if needed; run via `make check`.
 
-```bash
-../moodle-plugin-ci/vendor/bin/phpcs --standard=moodle ./path/to/file_or_directory.php
-```
+## Commit & Pull Request Guidelines
+- Messages: imperative, concise; optional Conventional Commits (e.g., `feat:`, `fix:`).
+- PRs: describe intent, link issues, list testing steps; include screenshots for UI.
+- Quality gates: `make check` must pass; keep diffs focused.
 
-This will display any style errors and warnings detected according to the Moodle standard.
-
-## Running phpcbf
-
-To automatically fix style errors detected by `phpcs`, run:
-
-```bash
-../moodle-plugin-ci/vendor/bin/phpcbf --standard=moodle ./path/to/file_or_directory.php
-```
-
-This will modify the files to fix issues that can be automatically resolved.
-
-## Notes
-
-- Make sure you have installed `moodle-plugin-ci` using composer outside the Moodle directory, for example:
-  ```bash
-  php composer.phar create-project moodlehq/moodle-plugin-ci ../moodle-plugin-ci ^4
-  ```
-- If you use the `.phar` file, you can run:
-  ```bash
-  php moodle-plugin-ci.phar phpcs ./path/to/file_or_directory.php
-  php moodle-plugin-ci.phar phpcbf ./path/to/file_or_directory.php
-  ```
-- See the official [moodle-plugin-ci documentation](https://github.com/moodlehq/moodle-plugin-ci) for more details and advanced options.
+## Security & Configuration Tips
+- Do not commit secrets; copy `.env.dist` to `.env` for local overrides.
+- Omeka-S credentials are optional for public content; prefer environment variables in Docker when testing.
