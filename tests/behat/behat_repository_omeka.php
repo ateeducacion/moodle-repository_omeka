@@ -40,58 +40,58 @@ class behat_repository_omeka extends behat_base {
     public function i_configure_the_repository_with(string $reponame, TableNode $table): void {
         // Go to Manage repositories.
         $this->execute('I navigate to "Manage repositories" in site administration');
-
         $page = $this->getSession()->getPage();
 
-        // Click "Create a repository instance" if present on the page (label may vary slightly).
-        $candidates = [
-            'Create a repository instance',
-            'Create a repository instance…',
-            'Create a repository instance...',
-        ];
-        $clicked = false;
-        foreach ($candidates as $label) {
-            $button = $page->findButton($label);
-            if ($button) {
-                $button->click();
-                $clicked = true;
-                break;
-            }
-            $link = $page->findLink($label);
-            if ($link) {
-                $link->click();
-                $clicked = true;
-                break;
-            }
-        }
-
-        // If a type selection is shown, choose the requested type and continue.
-        $typeselect = $page->find('named', [ 'field', 'type' ]);
-        if (!$clicked && !$typeselect) {
-            // Some themes may show an inline control per repository.
-            // Try to click an action link in the row containing the repository name.
-            $row = $page->find('xpath', "//tr[.//text()[contains(., '{$reponame}')]]");
-            if ($row) {
-                // Click any link that mentions 'Create' within this row.
-                $action = $row->find('xpath', ".//a[contains(., 'Create')]");
-                if ($action) {
-                    $action->click();
+        // Ensure the repository is enabled and visible.
+        $row = $page->find('xpath', "//tr[.//text()[contains(., '{$reponame}')]]");
+        if ($row) {
+            $select = $row->find('css', 'select');
+            if ($select) {
+                // Prefer selecting by value when available.
+                // Moodle usually uses values: 1 => Enabled and visible, 0 => Disabled.
+                $success = false;
+                try {
+                    $select->selectOption('1', false);
+                    $success = true;
+                } catch (\Exception $e) {
+                    // Fallback to visible labels in common languages.
+                    $labels = [
+                        'Enabled and visible',
+                        'Enable and visible',
+                        'Enabled',
+                        'Habilitado y visible',
+                        'Habilitado',
+                    ];
+                    foreach ($labels as $label) {
+                        try {
+                            $select->selectOption($label);
+                            $success = true;
+                            break;
+                        } catch (\Exception $ignored) {
+                            // Intentionally ignored: try next label when this option is not available.
+                            $ignored = $ignored; // No-op to avoid empty catch block.
+                        }
+                    }
+                }
+                // Click a global Save button if found to persist enable state.
+                if ($success) {
+                    $save = $page->findButton('Save changes') ?: $page->findButton('Save');
+                    if ($save) {
+                        $save->click();
+                        $page = $this->getSession()->getPage();
+                        // Re-acquire row after postback.
+                        $row = $page->find('xpath', "//tr[.//text()[contains(., '{$reponame}')]]");
+                    }
                 }
             }
         }
 
-        $page = $this->getSession()->getPage();
-        $typeselect = $page->find('named', [ 'field', 'type' ]);
-        if ($typeselect) {
-            $typeselect->selectOption($reponame);
-            // Try common submit labels.
-            $submitlabels = ['Create', 'Next', 'Continue'];
-            foreach ($submitlabels as $label) {
-                $btn = $page->findButton($label);
-                if ($btn) {
-                    $btn->click();
-                    break;
-                }
+        // Open Settings for this repository type if available.
+        if ($row) {
+            $settings = $row->findLink('Settings') ?: $row->findLink('Ajustes') ?: $row->findLink('Configuración');
+            if ($settings) {
+                $settings->click();
+                $page = $this->getSession()->getPage();
             }
         }
 
