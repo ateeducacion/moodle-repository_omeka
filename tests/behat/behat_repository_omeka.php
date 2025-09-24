@@ -98,14 +98,32 @@ class behat_repository_omeka extends behat_base {
         // Prepare fields to set from the provided table.
         $rows = $table->getRowsHash();
         // Ensure a name is set if the instance form requires it.
-        // Try both common labels.
-        if (!isset($rows['Name'])) {
-            $rows['Name'] = $reponame;
+        if (!isset($rows['name']) && !isset($rows['Name']) && !isset($rows['Repository name'])) {
+            $rows['name'] = $reponame;
         }
-        if (!isset($rows['Repository name'])) {
-            $rows['Repository name'] = $reponame;
+
+        // Fill fields by name/id/label using Mink directly to accept raw keys like 'baseurl'.
+        $page = $this->getSession()->getPage();
+        foreach ($rows as $key => $value) {
+            $field = $page->findField($key);
+            if (!$field) {
+                // Try common label mapping for English UI.
+                $labelmap = [
+                    'baseurl' => 'Omeka-S base URL',
+                    'keyidentity' => 'API key ID',
+                    'keycredential' => 'API key credential',
+                    'name' => 'Name',
+                ];
+                $alt = $labelmap[$key] ?? $key;
+                $field = $page->findField($alt);
+            }
+            if ($field) {
+                $field->setValue($value);
+                continue;
+            }
+            // As a last resort, try using the generic step for labels.
+            $this->execute('I set the following fields to these values:', new TableNode([[$key, $value]]));
         }
-        $this->execute('I set the following fields to these values:', new TableNode($this->hash_to_rows($rows)));
 
         // Save changes using common labels.
         $savecandidates = ['Save', 'Save changes', 'Create repository instance'];
