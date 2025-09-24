@@ -247,7 +247,19 @@ phpunit: ci-bootstrap sync-plugin phpunit-init ## Run PHPUnit tests
 	@echo -e "\033[36m▶ PHPUnit…\033[0m"
 	PHPRC=.ci PHP_INI_SCAN_DIR= $(CI_BIN) phpunit $(MOODLE_ARG) --fail-on-warning .
 
-behat: ci-bootstrap ## Run Behat features
+behat-init: ## Initialise Moodle Behat environment if needed
+	@if [ -f "$(CI_MOODLE)/admin/tool/behat/cli/init.php" ]; then \
+	  CFG="$(CI_DATA)/behat_moodledata/behatrun/behat/behat.yml"; \
+	  if [ ! -f "$$CFG" ]; then \
+	    echo "→ Initialising Moodle Behat environment…"; \
+	    mkdir -p .ci; \
+	    echo "max_input_vars=5000" > .ci/php.ini; \
+	    echo "memory_limit=512M" >> .ci/php.ini; \
+	    PHPRC=.ci PHP_INI_SCAN_DIR= php -n -c .ci/php.ini "$(CI_MOODLE)/admin/tool/behat/cli/init.php" --parallel=1 --optimize; \
+	  fi; \
+	fi
+
+behat: ci-bootstrap sync-plugin behat-init ## Run Behat features
 	@echo -e "\033[36m▶ Behat…\033[0m"
 	$(CI_BIN) behat $(MOODLE_ARG) --profile chrome --tags=@$(PLUGIN) .
 
