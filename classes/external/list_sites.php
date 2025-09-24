@@ -68,12 +68,17 @@ class list_sites extends external_api {
             'keycredential' => $keycredential,
         ]);
 
-        // Call the plugin helper in the global namespace.
-        $sites = \repository_omeka::fetch_sites($baseurl, $keyidentity, $keycredential);
+        // Get detailed sites (id, label, title, slug).
+        $sites = \repository_omeka::fetch_sites_detailed($baseurl, $keyidentity, $keycredential);
 
         $options = [];
-        foreach ($sites as $id => $label) {
-            $options[] = ['value' => (int)$id, 'label' => (string)$label];
+        foreach ($sites as $site) {
+            $options[] = [
+                'value' => (int)($site['id'] ?? 0),
+                'label' => (string)($site['label'] ?? ''),
+                'title' => (string)($site['title'] ?? ''),
+                'slug' => (string)($site['slug'] ?? ''),
+            ];
         }
 
         return ['options' => $options];
@@ -90,6 +95,8 @@ class list_sites extends external_api {
                 new external_single_structure([
                     'value' => new external_value(PARAM_INT, 'Site ID'),
                     'label' => new external_value(PARAM_TEXT, 'Display label'),
+                    'title' => new external_value(PARAM_TEXT, 'Site title', VALUE_DEFAULT, ''),
+                    'slug' => new external_value(PARAM_ALPHANUMEXT, 'Site slug', VALUE_DEFAULT, ''),
                 ])
             ),
         ]);

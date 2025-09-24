@@ -35,10 +35,12 @@ $string['baseurl_desc'] = 'Root URL of the Omeka-S site for this repository (e.g
 $string['site'] = 'Omeka-S site';
 $string['site_desc'] = 'Select the Omeka-S site to browse. Leave empty to use all public items.';
 $string['site_help'] = 'Choose which Omeka-S site to fetch items from.';
+$string['acceptedtypes'] = 'Accepted file types (optional)';
+$string['acceptedtypes_help'] = 'Restrict files to these types. Leave empty to allow all. You can enter extensions (e.g., .pdf, .png), MIME types (e.g., image/png) or type groups such as image, audio, video, document, spreadsheet, presentation, archive.';
 $string['cannotdownload'] = 'Unable to download the file from Omeka-S.';
 $string['configplugin'] = 'Omeka-S';
 $string['omeka:view'] = 'Use Omeka-S in the File Picker';
 $string['pluginname'] = 'Omeka-S Repository';
 $string['privacy:metadata'] = 'Omeka-S repository does not store or transmit your data to third parties.';
 $string['search'] = 'Search files in Omeka-S';
-
+$string['acceptedtypes'] = 'Accepted types';

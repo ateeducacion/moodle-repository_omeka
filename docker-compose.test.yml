@@ -1,0 +1,19 @@
+services:
+  ci-db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    ports:
+      - "${TEST_DB_PORT:-3307}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: moodle
+      MYSQL_USER: moodle
+      MYSQL_PASSWORD: moodle
+    tmpfs:
+      - /var/lib/mysql:rw
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
