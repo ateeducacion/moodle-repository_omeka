@@ -98,7 +98,7 @@ jobs:
     - name: Behat features
       id: behat
       if: ${{ !cancelled() }}
-      run: moodle-plugin-ci behat .plugin --profile chrome
+      run: moodle-plugin-ci behat ./plugin --profile chrome
 
     - name: Upload Behat Faildump
       if: ${{ failure() && steps.behat.outcome == 'failure' }}
