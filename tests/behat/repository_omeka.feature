@@ -5,7 +5,7 @@ Feature: Omeka repository
   I need to be able to browse and select items from an Omeka-S instance
 
   Scenario: Plugin is configurable
-    Given I am on the "Plugins" "administration" page
+    Given I navigate to "Plugins" in site administration
     And I follow "Repositories"
     And I follow "Manage repositories"
     Then I should see "Omeka"
