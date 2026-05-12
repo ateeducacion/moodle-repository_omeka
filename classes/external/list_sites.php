@@ -37,7 +37,6 @@ use external_value;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class list_sites extends external_api {
-
     /**
      * Parameters definition for execute().
      *

@@ -1,0 +1,23 @@
+{
+    "@context": "https://example.test/api-context",
+    "@id": "https://example.test/api/media/100",
+    "@type": ["o:Media"],
+    "o:id": 100,
+    "o:title": "Portrait of Ada",
+    "o:created": {"@value": "2024-01-12T09:15:00+00:00"},
+    "o:modified": {"@value": "2024-02-22T11:00:00+00:00"},
+    "o:item": {"@id": "https://example.test/api/items/42", "o:id": 42},
+    "o:source": "https://example.test/files/original/portrait.jpg",
+    "o:original_url": "https://example.test/files/original/portrait.jpg",
+    "o:media_type": "image/jpeg",
+    "o:size": 102400,
+    "thumbnail_display_urls": {
+        "square": "https://example.test/files/square/100.jpg",
+        "medium": "https://example.test/files/medium/100.jpg"
+    },
+    "dcterms:title": [{"type": "literal", "@value": "Portrait of Ada"}],
+    "dcterms:description": [{"type": "literal", "@value": "Portrait photograph."}],
+    "dcterms:creator": [{"type": "literal", "@value": "Margaret Carpenter"}],
+    "dcterms:license": [{"type": "uri", "@id": "https://creativecommons.org/licenses/by-sa/4.0/"}],
+    "dcterms:extent": [{"type": "literal", "@value": "1.5 MB"}]
+}
