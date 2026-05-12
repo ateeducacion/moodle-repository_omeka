@@ -1,0 +1,23 @@
+[
+    {
+        "@id": "https://example.test/api/items/42",
+        "o:id": 42,
+        "o:title": "Sample item",
+        "o:primary_media": {"o:id": 100},
+        "o:media": [{"o:id": 100}],
+        "dcterms:creator": [{"type": "literal", "@value": "Ada Lovelace"}],
+        "dcterms:license": [{"type": "uri", "@id": "https://creativecommons.org/licenses/by/4.0/"}]
+    },
+    {
+        "@id": "https://example.test/api/items/43",
+        "o:id": 43,
+        "o:title": "Second item",
+        "o:primary_media": {"o:id": 101},
+        "o:media": [{"o:id": 101}]
+    },
+    {
+        "@id": "https://example.test/api/items/44",
+        "o:id": 44,
+        "o:title": "No media item"
+    }
+]

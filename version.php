@@ -24,8 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version = 2025070512;
+$plugin->version = 2026051200;
 $plugin->requires = 2021041900;
-$plugin->release = "0.1.0";
-$plugin->component = "repository_omeka";
-$plugin->maturity = MATURITY_ALPHA;
+$plugin->release = '0.2.0';
+$plugin->component = 'repository_omeka';
+$plugin->maturity = MATURITY_BETA;

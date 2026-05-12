@@ -5,11 +5,27 @@
     "license": "GPL-3.0-or-later",
     "authors": [
         {
-            "name": "Área de Tecnología Educativa",
+            "name": "Area de Tecnologia Educativa",
             "email": "ate.educacion@gobiernodecanarias.org"
         }
     ],
     "require": {
-        "php": ">=7.4"
+        "php": ">=8.1"
+    },
+    "require-dev": {
+        "moodlehq/moodle-cs": "^3.4",
+        "phpmd/phpmd": "^2.15"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "scripts": {
+        "lint": "phpcs -d memory_limit=1G",
+        "fix": "phpcbf -d memory_limit=1G",
+        "phpmd": "phpmd classes,lib.php,version.php,ajax.php,db text cleancode,codesize,controversial,design,naming,unusedcode",
+        "test": "phpunit",
+        "behat": "behat --config behat.yml"
     }
 }

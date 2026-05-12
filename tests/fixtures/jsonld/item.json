@@ -1,0 +1,24 @@
+{
+    "@context": "https://example.test/api-context",
+    "@id": "https://example.test/api/items/42",
+    "@type": ["o:Item"],
+    "o:id": 42,
+    "o:title": "Sample item",
+    "o:created": {"@value": "2023-12-31T08:00:00+00:00"},
+    "o:modified": {"@value": "2024-03-01T12:34:56+00:00"},
+    "o:item_set": [{"@id": "https://example.test/api/item_sets/12", "o:id": 12}],
+    "o:media": [
+        {"@id": "https://example.test/api/media/100", "o:id": 100},
+        {"@id": "https://example.test/api/media/101", "o:id": 101}
+    ],
+    "o:primary_media": {"@id": "https://example.test/api/media/100", "o:id": 100},
+    "dcterms:title": [{"type": "literal", "@value": "Sample item"}],
+    "dcterms:description": [{"type": "literal", "@value": "An example item."}],
+    "dcterms:creator": [{"type": "literal", "@value": "Ada Lovelace"}],
+    "dcterms:license": [{"type": "uri", "@id": "https://creativecommons.org/licenses/by/4.0/"}],
+    "dcterms:date": [{"type": "literal", "@value": "1843-12-10"}],
+    "thumbnail_display_urls": {
+        "square": "https://example.test/files/square/42.jpg",
+        "medium": "https://example.test/files/medium/42.jpg"
+    }
+}

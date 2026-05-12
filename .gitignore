@@ -26,3 +26,12 @@ ci/
 .ci/
 
 node_modules/
+
+# Release packages
+*.zip
+
+# AMD build output (regenerated)
+amd/build/
+.omc/
+
+.claude/

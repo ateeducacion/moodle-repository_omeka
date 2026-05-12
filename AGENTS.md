@@ -1,39 +1,154 @@
-# Repository Guidelines
+# AGENTS.md
 
-## Project Structure & Module Organization
-- Core: `lib.php`, `version.php`, `ajax.php`.
-- PHP classes: `classes/` (namespaced `repository_omeka\…`).
-- DB and privacy: `db/`, `classes/privacy/`.
-- UI assets: `pix/`, `styles.scss|css`, `amd/` (JS AMD modules).
-- Localization: `lang/`.
-- Tests: `tests/behat/` (Behat steps/features).
-- Dev tooling: `Makefile`, `docker-compose.yml`, `ci/` (local moodle-plugin-ci).
+This file provides guidance to AI coding agents when working with code in this repository.
+
+## Project Overview
+
+`repository_omeka` is a Moodle repository plugin that lets users browse and insert media items
+from an Omeka-S instance directly through the Moodle file picker. It connects to the Omeka-S
+REST API, parses JSON-LD responses, and maps item metadata to Moodle's repository interface.
+
+**Component**: `repository_omeka`
+**Moodle compatibility**: 4.2+
+**License**: GNU GPL v3+
+
+## Architecture
+
+The plugin follows the standard Moodle repository pattern:
+
+- `lib.php` — Main repository class (`repository_omeka`), implements all Moodle repository
+  hooks: `get_listing()`, `search()`, `get_file()`, `print_login()`, `check_login()`,
+  `get_link()`. This is the orchestrator; all business logic is delegated to `classes/local/`.
+- `classes/local/api_client.php` — HTTP client wrapping `curl_easy` to call the Omeka-S REST
+  API (`/api/items`, `/api/media`, `/api/sites`). Handles authentication via API key identity
+  and credential query parameters.
+- `classes/local/jsonld_parser.php` — Parses JSON-LD item responses from Omeka-S, extracting
+  title, description, thumbnail, and media URLs.
+- `classes/local/license_mapper.php` — Maps Omeka-S license strings to Moodle license
+  identifiers.
+- `classes/privacy/provider.php` — Moodle Privacy API implementation (null provider).
+- `classes/external/list_sites.php` — External function exposing available Omeka-S sites for
+  the JS AMD module used in the repository configuration UI.
+- `ajax.php` — Entry point for AMD/AJAX calls (site listing for the settings form).
+- `amd/src/` — AMD JavaScript modules for the file picker UI and settings form.
+
+Omeka-S API endpoints used: `GET /api/items`, `GET /api/media`, `GET /api/sites`.
+
+## Project Structure
+
+```
+repository_omeka/
+  lib.php                        # Repository class (Moodle hooks)
+  ajax.php                       # AJAX entry point
+  version.php                    # Plugin version metadata
+  classes/
+    local/
+      api_client.php             # Omeka-S HTTP client
+      jsonld_parser.php          # JSON-LD response parser
+      license_mapper.php         # License string mapping
+    external/
+      list_sites.php             # External function: list sites
+    privacy/
+      provider.php               # Privacy API (null provider)
+  amd/
+    src/                         # AMD JS source modules
+    build/                       # Compiled AMD output (do not edit)
+  lang/
+    en/
+      repository_omeka.php       # English language strings
+  db/
+    access.php                   # Capability definitions
+    install.xml                  # Database schema
+  tests/
+    behat/
+      repository_omeka.feature   # Behat scenarios
+      behat_repository_omeka.php # Custom step definitions
+    phpunit/
+      repository_omeka_test.php  # PHPUnit tests
+  pix/                           # Plugin icons
+  Makefile                       # Development commands
+  docker-compose.yml             # Local dev stack
+  composer.json                  # PHP dependencies
+```
 
 ## Build, Test, and Development Commands
-- `make upd` / `make down`: Start/stop Docker stack (Moodle, Omeka-S, DB).
-- `make shell`: Open a shell in the Moodle container.
-- `make ci-deps`: Install `ci/` helper (moodle-plugin-ci).
-- `make check`: Run full CI suite (lint, PHPCS, validate, savepoints, mustache, PHPUnit, Behat).
-- `make behat`: Run tagged Behat scenarios for this plugin.
-- `make package VERSION=X.Y.Z`: Create a zip release.
+
+```bash
+make upd             # Start Docker services in background (Moodle + Omeka-S + DB)
+make up              # Start Docker services in foreground
+make down            # Stop Docker services
+make shell           # Open interactive shell in the Moodle container
+make ci-deps         # Install moodle-plugin-ci into ./ci (run once)
+make lint            # Run phplint + phpmd + phpcs (no tests)
+make phpcs           # Moodle CodeSniffer standard only
+make phpcbf          # Auto-fix CodeSniffer violations
+make phpmd           # PHP Mess Detector
+make test            # Run PHPUnit tests via minimal DB stack
+make behat           # Run Behat scenarios tagged @repository_omeka
+make check           # Full CI suite: analysis + tests
+make package VERSION=X.Y.Z  # Build distributable ZIP
+make clean           # Remove containers, volumes, orphans
+```
+
+Run `make ci-deps` before any `make lint / test / behat / check` on a fresh checkout.
 
 ## Coding Style & Naming Conventions
-- Standard: Moodle PHP guidelines (4 spaces, no tabs).
-- Linting: `./ci/bin/moodle-plugin-ci phpcs --standard=moodle`.
-- Auto-fix: `../moodle-plugin-ci/vendor/bin/phpcbf --standard=moodle path.php` (or PHAR variant).
-- Namespaces: `repository_omeka\…`; class files in `classes/` follow Moodle autoload rules.
-- Strings in `lang/en/repository_omeka.php`; JS under `amd/src/` with AMD module names.
+
+- **Standard**: Moodle PHP coding guidelines — 4 spaces, no tabs, Unix line endings.
+- **Linting**: `make phpcs` (CodeSniffer, Moodle standard); `make phpcbf` to auto-fix.
+- **Namespaces**: classes under `classes/local/` use `repository_omeka\local\<Classname>`;
+  classes under `classes/external/` use `repository_omeka\external\<Classname>`.
+- **Strings**: all UI strings in `lang/en/repository_omeka.php`; use
+  `get_string('key', 'repository_omeka')`.
+- **JS**: AMD modules in `amd/src/`; compiled output in `amd/build/` (do not commit
+  hand-edited build files).
+- **No direct `echo`**: use Moodle output functions or return HTML strings.
 
 ## Testing Guidelines
-- Behat: place features/steps in `tests/behat/`; tag scenarios `@repository_omeka`.
-- Run Behat: `make behat` (or `./ci/bin/moodle-plugin-ci behat --profile chrome`).
-- PHPUnit: add tests under `tests/phpunit/*_test.php` if needed; run via `make check`.
+
+### PHPUnit
+
+- Tests live in `tests/phpunit/*_test.php`.
+- Namespace: `repository_omeka\local` (where applicable).
+- Run all: `make test`
+- Run a single file: set up CI first (`make ci-deps`), then
+  `vendor/bin/phpunit tests/phpunit/repository_omeka_test.php`
+
+### Behat
+
+- Feature files in `tests/behat/`; all scenarios tagged `@repository_omeka`.
+- Add `@javascript` to any scenario that requires a browser (file picker, AJAX, dynamic UI).
+- Custom step definitions in `tests/behat/behat_repository_omeka.php` (class
+  `behat_repository_omeka extends behat_base`).
+- Docblock format for steps: `@Given /^regex$/`, `@When /^regex$/`, `@Then /^regex$/`.
+- Run: `make behat`
+- Behat uses a local Chrome/Chromedriver container (`make webdriver-up` is called automatically).
 
 ## Commit & Pull Request Guidelines
-- Messages: imperative, concise; optional Conventional Commits (e.g., `feat:`, `fix:`).
-- PRs: describe intent, link issues, list testing steps; include screenshots for UI.
-- Quality gates: `make check` must pass; keep diffs focused.
+
+- Commit messages: imperative mood, concise. Conventional Commits optional
+  (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`).
+- PRs: describe intent, link related issues, list manual testing steps.
+- Each PR automatically generates a preview on Moodle Playground via
+  `.github/workflows/pr-playground-preview.yml`.
+- `make check` must pass before merging.
+
+## Releases
+
+- Publish a GitHub Release (tag `vX.Y.Z`) to trigger `.github/workflows/release.yml`.
+  The workflow builds and uploads the plugin ZIP automatically.
+- To build locally: `make package VERSION=X.Y.Z`
+  (creates `repository_omeka-X.Y.Z.zip` excluding files listed in `.distignore`).
 
 ## Security & Configuration Tips
-- Do not commit secrets; copy `.env.dist` to `.env` for local overrides.
-- Omeka-S credentials are optional for public content; prefer environment variables in Docker when testing.
+
+- Do not commit secrets; copy `.env.dist` to `.env` for local overrides (`.env` is gitignored).
+- Omeka-S API keys (`keyidentity` / `keycredential`) are optional for public content.
+- Prefer environment variables in Docker Compose when testing against a real Omeka-S instance.
+- Repository credentials are stored via Moodle's admin settings and never logged.
+
+## External References
+
+- Omeka-S REST API: https://omeka.org/s/docs/developer/api/rest_api/
+- Moodle Repository Plugin API: https://moodledev.io/docs/apis/plugintypes/repository
+- PR Preview Action: https://github.com/ateeducacion/action-moodle-playground-pr-preview

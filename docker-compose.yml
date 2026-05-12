@@ -111,6 +111,16 @@ services:
       PMA_PASSWORD: root
       UPLOAD_LIMIT: 64M
 
+  # The alpine-chromium image includes Chrome + Chromedriver
+  chrome:
+    image: ghcr.io/erseco/alpine-chromedriver:latest
+    container_name: chrome
+    hostname: chrome
+    restart: unless-stopped
+    shm_size: "2gb"
+    ports:
+      - "9515:9515" # Expose Chromedriver
+
 volumes:
   moodledata:
   dbdata:

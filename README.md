@@ -1,5 +1,13 @@
 # Omeka-S Repository Plugin
 
+[![Preview in Moodle Playground](https://raw.githubusercontent.com/ateeducacion/action-moodle-playground-pr-preview/refs/heads/main/assets/playground-preview-button.svg)](https://ateeducacion.github.io/moodle-playground/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/moodle-repository_omeka/refs/heads/main/blueprint.json)
+
+## Try in Moodle Playground
+
+Click the badge above to open the `main` branch instantly in Moodle Playground with the plugin pre-installed.
+
+Every pull request automatically generates a playground preview link appended to the PR description, so reviewers can test the changes in a live Moodle instance without any local setup.
+
 This plugin allows you to connect Moodle with one or more Omeka-S instances, making it easy to integrate and access digital resources stored in Omeka-S from Moodle's file picker.
 
 ## Description
@@ -11,7 +19,7 @@ Navigation starts by displaying the available item sets, and upon selecting one,
 
 ## Installation
 
-1. Copy the plugin into the `repository/omeka` folder of your Moodle installation.
+1. Download the latest ZIP from the [Releases](https://github.com/ateeducacion/moodle-repository_omeka/releases) page, or copy the plugin directory into `repository/omeka` inside your Moodle installation.
 2. Go to Site administration and complete the installation.
 3. Create repository instances by specifying the URL of each Omeka-S installation, the site you want to display, and, if necessary, the API key data (`key_identity` and `key_credential`). These keys are optional for accessing public content.
 
@@ -45,6 +53,17 @@ The repository includes a lightweight, dockerised setup to run the plugin's chec
 - Troubleshooting:
   - "Node version not satisfied": ensure Node 22 is available (see above) or run with `CI_NO_INIT=` to allow core init only when you have Node 22, or use `make ci-clean` then `make test` after adjusting Node.
   - "database exists": use `make test-reset` to drop the test DB, or `make ci-clean` to clear the cached environment.
+
+## CI
+
+Every push and pull request runs a full matrix via GitHub Actions (`moodle-ci.yml`):
+
+- **Moodle branches:** 4.4 LTS, 4.5, 5.0
+- **PHP versions:** 8.2, 8.3
+- **Databases:** PostgreSQL, MariaDB
+- **Steps per combination:** PHP lint, PHP Mess Detector, Moodle Code Checker (PHPCS), plugin validation, upgrade savepoints, Mustache lint, PHPUnit, Behat
+
+Release ZIPs are built and attached to GitHub Releases automatically via `release.yml` on each published release.
 
 ## Support
 

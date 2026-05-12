@@ -43,5 +43,7 @@ $string['omeka:view'] = 'Usar Omeka-S en el selector de archivos';
 $string['pluginname'] = 'Repositorio Omeka-S';
 $string['privacy:metadata'] = 'El repositorio Omeka-S no almacena ni transmite tus datos a terceros.';
 $string['search'] = 'Buscar archivos en Omeka-S';
-$string['acceptedtypes'] = 'Tipos aceptados';
-
+$string['repositoryomeka_apierror'] = 'Error de la API de Omeka-S: {$a}';
+$string['itemsetlabel'] = 'Colección {$a}';
+$string['itemlabel'] = 'Ítem {$a}';
+$string['medialabel'] = 'Media {$a}';

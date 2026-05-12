@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * PHPUnit tests for the Omeka repository.
+ * Smoke tests for the public API of the repository.
  *
  * @package    repository_omeka
  * @category   test
@@ -28,87 +28,58 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->dirroot . '/repository/omeka/lib.php');
 
+use repository_omeka\local\filetype_filter;
+use repository_omeka\local\format_helper;
+use repository_omeka\local\license_mapper;
+
 /**
- * Test cases for repository_omeka.
+ * Backwards-compatible smoke tests exercising the public helpers via the new namespaced classes.
  */
 final class repository_omeka_test extends advanced_testcase {
-
     /**
      * Reset Moodle state after each test.
      */
     protected function setUp(): void {
-        // Clean Moodle data and caches between tests.
         $this->resetAfterTest();
     }
 
     /**
-     * Test size parser for basic units.
+     * Size parser handles common SI and IEC units.
      */
     public function test_size_parser_basic_units(): void {
-        $repo = new repository_omeka_testhooks(
-            0,
-            \context_system::instance(),
-            ['baseurl' => 'http://example.test'], // Dummy base URL.
-            false
-        );
-
-        $this->assertSame(1024, $repo->parse_human_size_to_bytes('1 KB'));
-        $this->assertSame(1048576, $repo->parse_human_size_to_bytes('1 MiB'));
-        $this->assertSame(1500000, $repo->parse_human_size_to_bytes('1.5 MB'));
+        $this->assertSame(1024, format_helper::parse_human_size('1 KB'));
+        $this->assertSame(1048576, format_helper::parse_human_size('1 MiB'));
+        $this->assertSame(1500000, format_helper::parse_human_size('1.5 MB'));
     }
 
     /**
-     * Test guessing mimetype from URL.
+     * Mimetype guesser inspects URL extensions.
      */
     public function test_guess_mimetype_from_url(): void {
-        $repo = new repository_omeka_testhooks(
-            0,
-            \context_system::instance(),
-            ['baseurl' => 'http://x'],
-            false
-        );
-
-        $this->assertSame('image/jpeg', $repo->guess_mimetype_from_url('https://x/y/z/photo.JPG'));
-        $this->assertSame('application/pdf', $repo->guess_mimetype_from_url('http://x/file.pdf?download=1'));
-        $this->assertSame('application/zip', $repo->guess_mimetype_from_url('http://x/a/b/c/archive.zip'));
+        $this->assertSame('image/jpeg', format_helper::guess_mimetype_from_filename('https://x/y/z/photo.JPG'));
+        $this->assertSame('application/pdf', format_helper::guess_mimetype_from_filename('http://x/file.pdf?download=1'));
+        $this->assertSame('application/zip', format_helper::guess_mimetype_from_filename('http://x/a/b/c/archive.zip'));
     }
 
     /**
-     * Test license mapping.
+     * License mapper recognises common Creative Commons URLs.
      */
     public function test_license_mapping(): void {
-        $repo = new repository_omeka_testhooks(
-            0,
-            \context_system::instance(),
-            ['baseurl' => 'http://x'],
-            false
-        );
-
-        [$short, $url] = $repo->map_license_to_moodle('https://creativecommons.org/licenses/by/4.0/');
+        [$short, $url] = license_mapper::map('https://creativecommons.org/licenses/by/4.0/');
         $this->assertSame('cc-by', $short);
         $this->assertNotEmpty($url);
 
-        [$short, $url] = $repo->map_license_to_moodle('CC0');
+        [$short, ] = license_mapper::map('CC0');
         $this->assertSame('cc-zero', $short);
     }
 
     /**
-     * Test filtering of file types at instance level.
+     * Instance filetype filter behaves correctly with "image" group token.
      */
     public function test_instance_filetype_filter(): void {
-        // Only allow images.
-        $repo = new repository_omeka_testhooks(
-            0,
-            \context_system::instance(),
-            [
-                'baseurl' => 'http://x',
-                'acceptedtypes' => 'image', // Same format as the form.
-            ],
-            false
-        );
-
-        $this->assertTrue($repo->is_allowed_by_instance_types('foto.png', 'image/png'));
-        $this->assertFalse($repo->is_allowed_by_instance_types('doc.zip', 'application/zip'));
-        $this->assertTrue($repo->is_allowed_by_instance_types('x.jpg', '')); // Extension alone also works.
+        $filter = new filetype_filter('image');
+        $this->assertTrue($filter->is_allowed('foto.png', 'image/png'));
+        $this->assertFalse($filter->is_allowed('doc.zip', 'application/zip'));
+        $this->assertTrue($filter->is_allowed('x.jpg', ''));
     }
 }

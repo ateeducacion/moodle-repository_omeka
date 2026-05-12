@@ -1,0 +1,15 @@
+{
+    "@context": "https://example.test/api-context",
+    "@id": "https://example.test/api/item_sets/12",
+    "@type": ["o:ItemSet"],
+    "o:id": 12,
+    "o:title": "Photographs of the 1900s",
+    "o:created": {"@value": "2024-01-15T10:00:00+00:00", "@type": "http://www.w3.org/2001/XMLSchema#dateTime"},
+    "o:modified": {"@value": "2024-04-02T18:30:00+00:00", "@type": "http://www.w3.org/2001/XMLSchema#dateTime"},
+    "dcterms:title": [
+        {"type": "literal", "property_id": 1, "property_label": "Title", "is_public": true, "@value": "Photographs of the 1900s"}
+    ],
+    "dcterms:description": [
+        {"type": "literal", "property_id": 4, "property_label": "Description", "is_public": true, "@value": "A curated set."}
+    ]
+}
