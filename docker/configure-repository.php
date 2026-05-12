@@ -1,4 +1,18 @@
 <?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 // Registers the Omeka-S repository type as enabled+visible, allows course and
 // user instances, and creates a system-context instance pointing at
 // $OMEKA_BASEURL (defaults to the public sandbox). Idempotent — safe to run on
@@ -70,9 +84,16 @@ if (!$existing) {
             'value' => $value,
         ]);
     }
-    printf("Omeka Sandbox instance created (typeid=%d, instanceid=%d) -> %s\n",
-        $typeid, $instanceid, $baseurl);
+    printf(
+        "Omeka Sandbox instance created (typeid=%d, instanceid=%d) -> %s\n",
+        $typeid,
+        $instanceid,
+        $baseurl
+    );
 } else {
-    printf("Omeka Sandbox instance already exists (typeid=%d, instanceid=%d)\n",
-        $typeid, (int)$existing->id);
+    printf(
+        "Omeka Sandbox instance already exists (typeid=%d, instanceid=%d)\n",
+        $typeid,
+        (int)$existing->id
+    );
 }
