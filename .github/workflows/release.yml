@@ -51,7 +51,7 @@ jobs:
 
       - name: Upload ZIP to release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: repository_omeka-${{ env.RELEASE_TAG }}.zip
         env:
