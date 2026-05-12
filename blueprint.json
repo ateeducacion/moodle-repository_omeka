@@ -1,11 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/ateeducacion/moodle-playground/refs/heads/main/assets/blueprints/blueprint-schema.json",
   "preferredVersions": { "php": "8.3", "moodle": "5.0" },
-  "landingPage": "/repository/pluginfile.php",
+  "landingPage": "/user/files.php",
   "constants": {
     "ADMIN_USER": "admin",
     "ADMIN_PASS": "test",
-    "ADMIN_EMAIL": "admin@example.com"
+    "ADMIN_EMAIL": "admin@example.com",
+    "OMEKA_BASEURL": "https://dev.omeka.org/omeka-s-sandbox"
   },
   "steps": [
     {
@@ -27,6 +28,10 @@
       "url": "https://github.com/ateeducacion/moodle-repository_omeka/archive/refs/heads/main.zip"
     },
     {
+      "step": "runPhpCode",
+      "code": "if (!defined('CLI_SCRIPT')) { define('CLI_SCRIPT', true); } require('/www/moodle/config.php'); require_once($CFG->dirroot . '/repository/lib.php'); $type = new repository_type('omeka', [], true); $typeid = $type->get_typeid(); if (!$typeid) { $typeid = $type->create(true); } $systemcontext = context_system::instance(); $existing = $DB->get_record('repository_instances', ['typeid' => $typeid, 'contextid' => $systemcontext->id]); if (!$existing) { $params = ['name' => 'Omeka Sandbox', 'baseurl' => '{{OMEKA_BASEURL}}', 'siteid' => 0, 'keyidentity' => '', 'keycredential' => '', 'acceptedtypes' => '', 'sitelabel' => '', 'siteslug' => '']; repository::static_function('omeka', 'create', 'omeka', 0, $systemcontext, $params); } echo \"omeka repository enabled (typeid={$typeid})\\n\";"
+    },
+    {
       "step": "createCategory",
       "name": "Test Courses"
     },
@@ -35,7 +40,7 @@
       "fullname": "Omeka Repository Test Course",
       "shortname": "OMEKA01",
       "category": "Test Courses",
-      "summary": "Test course for the Omeka-S repository plugin."
+      "summary": "Test course for the Omeka-S repository plugin. The Omeka Sandbox repository instance is preconfigured against {{OMEKA_BASEURL}}."
     },
     {
       "step": "createUser",
@@ -57,6 +62,6 @@
       "course": "OMEKA01",
       "role": "student"
     },
-    { "step": "setLandingPage", "path": "/course/view.php?id=2" }
+    { "step": "setLandingPage", "path": "/user/files.php" }
   ]
 }
