@@ -25,6 +25,6 @@ jobs:
 
       - uses: ateeducacion/action-moodle-playground-pr-preview@main
         with:
-          plugin-path: .
+          blueprint-file: blueprint.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           moodle-version: '5.0'
