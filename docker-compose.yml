@@ -43,54 +43,12 @@ services:
       POST_CONFIGURE_COMMANDS: |
         echo '== Running Moodle upgrade =='
         php admin/cli/upgrade.php --non-interactive
-        echo '== Ensuring "Test Courses" category and demo course =='
+        echo '== Ensuring OMEKA01 demo course =='
         if ! moosh course-list "shortname='OMEKA01'" | grep -q 'OMEKA01'; then
-          moosh course-create --category 1 --fullname "Omeka Repository Test Course" --shortname "OMEKA01"
+          moosh course-create -c 1 -f "Omeka Repository Test Course" OMEKA01
         fi
         echo '== Enabling repository_omeka and creating Omeka Sandbox instance =='
-        php -d display_errors=1 -r '
-          define("CLI_SCRIPT", true);
-          require("/var/www/html/config.php");
-          $baseurl = getenv("OMEKA_BASEURL") ?: "https://dev.omeka.org/omeka-s-sandbox";
-          $now = time();
-          // Repository type row: ensure it exists, visible, with sortorder.
-          $row = $DB->get_record("repository", ["type" => "omeka"]);
-          if ($row) {
-              $typeid = (int)$row->id;
-              $DB->set_field("repository", "visible", 1, ["id" => $typeid]);
-          } else {
-              $max = (int)$DB->get_field_sql("SELECT MAX(sortorder) FROM {repository}");
-              $rec = (object)["type" => "omeka", "visible" => 1, "sortorder" => $max + 1];
-              $typeid = (int)$DB->insert_record("repository", $rec);
-          }
-          // Plugin-level options (equivalent to ticking both boxes on /admin/repository.php).
-          set_config("enablecourseinstances", 1, "omeka");
-          set_config("enableuserinstances", 1, "omeka");
-          // System-context instance pointing at the configured Omeka URL.
-          $ctx = context_system::instance();
-          $existing = $DB->get_record("repository_instances", [
-              "typeid" => $typeid, "contextid" => $ctx->id,
-          ]);
-          if (!$existing) {
-              $inst = (object)[
-                  "name" => "Omeka Sandbox", "typeid" => $typeid, "userid" => 0,
-                  "contextid" => $ctx->id, "username" => "", "password" => "",
-                  "timecreated" => $now, "timemodified" => $now, "readonly" => 0,
-              ];
-              $instanceid = (int)$DB->insert_record("repository_instances", $inst);
-              foreach ([
-                  "baseurl" => $baseurl, "siteid" => "0",
-                  "keyidentity" => "", "keycredential" => "",
-                  "acceptedtypes" => "", "sitelabel" => "", "siteslug" => "",
-              ] as $n => $v) {
-                  $DB->insert_record("repository_instance_config",
-                      (object)["instanceid" => $instanceid, "name" => $n, "value" => $v]);
-              }
-              echo "Omeka Sandbox instance created (typeid=$typeid, instanceid=$instanceid) -> $baseurl" . PHP_EOL;
-          } else {
-              echo "Omeka Sandbox instance already exists (typeid=$typeid, instanceid={$existing->id})" . PHP_EOL;
-          }
-        '
+        php repository/omeka/docker/configure-repository.php
         echo '== Ensuring admin is enrolled as editingteacher in OMEKA01 =='
         moosh course-enrol -r editingteacher OMEKA01 admin || true
 
