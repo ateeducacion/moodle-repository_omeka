@@ -26,7 +26,6 @@ use Behat\Gherkin\Node\TableNode;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class behat_repository_omeka extends behat_base {
-
     /**
      * Configure a repository instance for Omeka via the admin UI.
      * Tries to create a new instance (if none exists) and fills the provided fields.
@@ -38,8 +37,8 @@ class behat_repository_omeka extends behat_base {
      * @param TableNode $table Key/value pairs to fill in the form.
      */
     public function i_configure_the_repository_with(string $reponame, TableNode $table): void {
-        // Go to Manage repositories.
-        $this->execute('I navigate to "Manage repositories" in site administration');
+        // Go to Manage repositories directly (more robust across themes/versions).
+        $this->getSession()->visit($this->locate_path('/admin/repository.php'));
         $page = $this->getSession()->getPage();
 
         // Ensure the repository is enabled and visible.
@@ -105,24 +104,32 @@ class behat_repository_omeka extends behat_base {
         // Fill fields by name/id/label using Mink directly to accept raw keys like 'baseurl'.
         $page = $this->getSession()->getPage();
         foreach ($rows as $key => $value) {
+            // Try by name/id/label.
             $field = $page->findField($key);
             if (!$field) {
-                // Try common label mapping for English UI.
+                // Try common English and Spanish labels.
                 $labelmap = [
-                    'baseurl' => 'Omeka-S base URL',
-                    'keyidentity' => 'API key ID',
-                    'keycredential' => 'API key credential',
-                    'name' => 'Name',
+                    'baseurl' => ['Omeka-S base URL', 'URL base de Omeka-S'],
+                    'keyidentity' => ['API key ID', 'ID de clave API'],
+                    'keycredential' => ['API key credential', 'Credencial de clave API'],
+                    'name' => ['Name', 'Nombre', 'Repository name'],
                 ];
-                $alt = $labelmap[$key] ?? $key;
-                $field = $page->findField($alt);
+                $alts = $labelmap[$key] ?? [$key];
+                foreach ((array)$alts as $alt) {
+                    $field = $page->findField($alt);
+                    if ($field) {
+                        break;
+                    }
+                }
+            }
+            if (!$field) {
+                // Try typical Moodle id_ pattern and name selectors.
+                $selector = sprintf('#id_%1$s, input[name="%1$s"], textarea[name="%1$s"], select[name="%1$s"]', $key);
+                $field = $page->find('css', $selector);
             }
             if ($field) {
                 $field->setValue($value);
-                continue;
             }
-            // As a last resort, try using the generic step for labels.
-            $this->execute('I set the following fields to these values:', new TableNode([[$key, $value]]));
         }
 
         // Save changes using common labels.
@@ -138,6 +145,66 @@ class behat_repository_omeka extends behat_base {
         $form = $page->find('css', 'form');
         if ($form) {
             $form->submit();
+        }
+    }
+
+    /**
+     * Set the Omeka repository enabled/disabled status via the admin UI.
+     *
+     * Accepted values: "Enabled and visible", "Enabled but hidden", "Disabled".
+     *
+     * @When I set the omeka repository status to :status
+     * @param string $status The desired status label or numeric value.
+     */
+    public function i_set_the_omeka_repository_status_to(string $status): void {
+        $page = $this->getSession()->getPage();
+        $row = $page->find('xpath', "//tr[.//text()[contains(., 'Omeka')]]");
+        if (!$row) {
+            throw new \Exception('Omeka repository row not found on the page.');
+        }
+        $select = $row->find('css', 'select');
+        if (!$select) {
+            throw new \Exception('Status select not found for the Omeka repository row.');
+        }
+        $select->selectOption($status);
+        $save = $page->findButton('Save changes') ?: $page->findButton('Save');
+        if ($save) {
+            $save->click();
+        }
+    }
+
+    /**
+     * Assert that the Omeka repository does not appear in the enabled repositories list.
+     *
+     * @Then I should not see :text in the enabled repositories list
+     * @param string $text Text that should be absent from enabled repository entries.
+     */
+    public function i_should_not_see_in_the_enabled_repositories_list(string $text): void {
+        $page = $this->getSession()->getPage();
+        $rows = $page->findAll('xpath', "//tr[.//select[not(option[@selected and @value='1'])]]");
+        foreach ($rows as $row) {
+            if (strpos($row->getText(), $text) !== false) {
+                throw new \Exception("'{$text}' was unexpectedly found in an enabled repository row.");
+            }
+        }
+    }
+
+    /**
+     * Assert that an error message is shown for the baseurl field.
+     *
+     * @Then I should see an error for the baseurl field
+     */
+    public function i_should_see_an_error_for_the_baseurl_field(): void {
+        $page = $this->getSession()->getPage();
+        // Moodle renders field errors inside an element with id "id_error_<fieldname>"
+        // or within a div.fitem that contains the field and a following .error span.
+        $error = $page->find('css', '#id_error_baseurl')
+            ?: $page->find(
+                'xpath',
+                "//*[contains(@class,'error') and (contains(., 'baseurl') or contains(., 'URL'))]"
+            );
+        if (!$error) {
+            throw new \Exception('No error message found for the baseurl field.');
         }
     }
 
