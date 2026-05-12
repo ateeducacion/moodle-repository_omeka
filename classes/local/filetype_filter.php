@@ -24,7 +24,6 @@
 
 namespace repository_omeka\local;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Decide whether a file is allowed for a repository instance.

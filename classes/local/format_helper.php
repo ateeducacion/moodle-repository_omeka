@@ -24,7 +24,6 @@
 
 namespace repository_omeka\local;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Stateless helpers to parse human-readable sizes and guess mime types.

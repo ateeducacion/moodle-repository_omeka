@@ -24,7 +24,6 @@
 
 namespace repository_omeka\local;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Map Omeka-S license strings or URIs to Moodle license codes.

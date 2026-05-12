@@ -189,15 +189,6 @@ class repository_omeka extends repository {
     }
 
     /**
-     * Site-wide settings names.
-     *
-     * @return array
-     */
-    public static function get_type_option_names() {
-        return parent::get_type_option_names();
-    }
-
-    /**
      * File types supported by the repository.
      *
      * @return string
@@ -329,7 +320,7 @@ class repository_omeka extends repository {
     /**
      * Validate the instance configuration form input.
      *
-     * @param \moodleform $mform Form.
+     * @param \moodleform $mform Form (signature required by Moodle, unused here).
      * @param array $data Submitted data.
      * @param array $errors Errors accumulator.
      * @return array Updated errors array.

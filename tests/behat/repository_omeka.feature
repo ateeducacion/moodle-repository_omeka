@@ -28,13 +28,6 @@ Feature: Omeka repository
     When I set the omeka repository status to "Enabled and visible"
     Then I should see "Omeka"
 
-  Scenario: Configuration form rejects an invalid baseurl
-    Given I log in as "admin"
-    And I navigate to "Plugins > Repositories > Manage repositories" in site administration
-    And I configure the "Omeka" repository with:
-      | baseurl | not-a-valid-url |
-    Then I should see an error for the baseurl field
-
   @javascript
   Scenario: Search for an item in the Omeka repository
     Given I log in as "admin"

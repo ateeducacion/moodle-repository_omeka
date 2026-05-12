@@ -24,7 +24,6 @@
 
 namespace repository_omeka\local;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Build entries that Moodle's file picker expects from Omeka-S resources.

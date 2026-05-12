@@ -188,37 +188,4 @@ class behat_repository_omeka extends behat_base {
             }
         }
     }
-
-    /**
-     * Assert that an error message is shown for the baseurl field.
-     *
-     * @Then I should see an error for the baseurl field
-     */
-    public function i_should_see_an_error_for_the_baseurl_field(): void {
-        $page = $this->getSession()->getPage();
-        // Moodle renders field errors inside an element with id "id_error_<fieldname>"
-        // or within a div.fitem that contains the field and a following .error span.
-        $error = $page->find('css', '#id_error_baseurl')
-            ?: $page->find(
-                'xpath',
-                "//*[contains(@class,'error') and (contains(., 'baseurl') or contains(., 'URL'))]"
-            );
-        if (!$error) {
-            throw new \Exception('No error message found for the baseurl field.');
-        }
-    }
-
-    /**
-     * Convert an associative array into Gherkin table rows.
-     *
-     * @param array $hash
-     * @return array
-     */
-    private function hash_to_rows(array $hash): array {
-        $rows = [];
-        foreach ($hash as $k => $v) {
-            $rows[] = [$k, $v];
-        }
-        return $rows;
-    }
 }

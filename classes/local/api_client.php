@@ -24,11 +24,6 @@
 
 namespace repository_omeka\local;
 
-defined('MOODLE_INTERNAL') || die();
-
-global $CFG;
-require_once($CFG->libdir . '/filelib.php');
-
 /**
  * Thin HTTP client around the Omeka-S REST API.
  */
@@ -80,6 +75,9 @@ class api_client {
      * @throws \moodle_exception When transport, HTTP, or JSON errors happen.
      */
     public function get(string $path, array $params = []): array {
+        global $CFG;
+        require_once($CFG->libdir . '/filelib.php');
+
         if ($this->baseurl === '') {
             throw new \moodle_exception('repositoryomeka_apierror', 'repository_omeka', '', 'missing baseurl');
         }
