@@ -17,15 +17,31 @@ With this plugin, you can link Omeka-S resources directly in Moodle, allowing us
 File searches are performed through the Omeka-S REST API, and results are paginated to avoid loading all items at once.
 Navigation starts by displaying the available item sets, and upon selecting one, the items belonging to that set are listed.
 
+## Compatibility
+
+The plugin's minimum required Moodle version is **Moodle 3.11** (`version.php`: `$plugin->requires = 2021041900`). Every push and pull request is verified through a CI matrix (`moodle-ci.yml`) on the following branches:
+
+| Moodle branch         | PHP        | Status                              |
+| --------------------- | ---------- | ----------------------------------- |
+| 4.4.x (LTS)           | 8.2, 8.3   | Supported (verified in CI)          |
+| 4.5.x (LTS)           | 8.2, 8.3   | Supported (verified in CI)          |
+| 5.0.x                 | 8.2, 8.3   | Supported (verified in CI)          |
+
+Older releases down to the declared minimum (Moodle 3.11) and newer releases (5.1.x, 5.2.x) are expected to work but are not part of the CI matrix yet. If you find an incompatibility please open an issue at <https://github.com/ateeducacion/moodle-repository_omeka/issues>.
+
+### Requirements
+
+* **Moodle**: 3.11 or later (CI-verified on 4.4 LTS, 4.5 LTS and 5.0; expected to keep working on newer releases up to 5.2.x).
+* **PHP**: 8.2 or 8.3 (CI matrix); any PHP supported by the Moodle release in use.
+* **Database**: PostgreSQL or MariaDB (CI-verified); any database supported by Moodle should work.
+* **Browser**: any modern, evergreen browser with JavaScript enabled.
+* **Omeka-S**: a reachable [Omeka-S](https://omeka.org/s/) instance with the REST API exposed; API key data (`key_identity` and `key_credential`) is optional and only needed for accessing non-public content.
+
 ## Installation
 
 1. Download the latest ZIP from the [Releases](https://github.com/ateeducacion/moodle-repository_omeka/releases) page, or copy the plugin directory into `repository/omeka` inside your Moodle installation.
 2. Go to Site administration and complete the installation.
 3. Create repository instances by specifying the URL of each Omeka-S installation, the site you want to display, and, if necessary, the API key data (`key_identity` and `key_credential`). These keys are optional for accessing public content.
-
-## Dependencies
-
-This plugin requires a working instance of [Omeka-S](https://omeka.org/s/) accessible from Moodle.
 
 ## Local Testing (Docker + moodle-plugin-ci)
 
@@ -56,12 +72,9 @@ The repository includes a lightweight, dockerised setup to run the plugin's chec
 
 ## CI
 
-Every push and pull request runs a full matrix via GitHub Actions (`moodle-ci.yml`):
+Every push and pull request runs a full matrix via GitHub Actions (`moodle-ci.yml`). See the [Compatibility](#compatibility) section above for the exact Moodle / PHP / database combinations covered.
 
-- **Moodle branches:** 4.4 LTS, 4.5, 5.0
-- **PHP versions:** 8.2, 8.3
-- **Databases:** PostgreSQL, MariaDB
-- **Steps per combination:** PHP lint, PHP Mess Detector, Moodle Code Checker (PHPCS), plugin validation, upgrade savepoints, Mustache lint, PHPUnit, Behat
+Each combination runs: PHP lint, PHP Mess Detector, Moodle Code Checker (PHPCS), plugin validation, upgrade savepoints, Mustache lint, PHPUnit, and Behat.
 
 Release ZIPs are built and attached to GitHub Releases automatically via `release.yml` on each published release.
 
@@ -72,6 +85,8 @@ Release ZIPs are built and attached to GitHub Releases automatically via `releas
 ## License
 
 This project is licensed under **GPL v3**.
+
+Copyright 2025-2026 Área de Tecnología Educativa.
 
 ## Author and Contact
 
