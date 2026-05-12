@@ -412,43 +412,29 @@ test-reset: ## Drop CI DB used by make test (dangerous)
 # -------------------------------------------------------
 
 PLUGIN_NAME = repository_omeka
+# Directory name expected by Moodle once extracted under repository/.
+PLUGIN_DIR  = omeka
+PACKAGE_TMP = /tmp/$(PLUGIN_NAME)-pkg
 
-# Create a distributable ZIP package
+# Create a distributable ZIP package.
 # Usage: make package RELEASE=1.0.0
+# Excludes everything listed in .distignore (hidden files, dev tooling, tests,
+# docker, ci, vendor, node_modules, etc.). The ZIP root is the plugin's Moodle
+# directory name ("omeka"), so it can be uploaded directly via
+# "Site administration > Plugins > Install plugins".
 package: ## Build a ZIP release (RELEASE=X.Y.Z required)
 	@if [ -z "$(RELEASE)" ]; then \
 		echo "Error: RELEASE not specified. Use 'make package RELEASE=1.0.0'"; \
 		exit 1; \
 	fi
-	@echo "Packaging release $(RELEASE)..."
-	@echo "Creating ZIP archive: $(PLUGIN_NAME)-$(RELEASE).zip..."
-	@if command -v rsync > /dev/null 2>&1 && command -v zip > /dev/null 2>&1; then \
-		rm -rf /tmp/omeka-package; \
-		mkdir -p /tmp/omeka-package/omeka; \
-		rsync -av --exclude-from=.distignore ./ /tmp/omeka-package/omeka/; \
-		cd /tmp/omeka-package && zip -qr "$(CURDIR)/$(PLUGIN_NAME)-$(RELEASE).zip" omeka; \
-		rm -rf /tmp/omeka-package; \
-	else \
-		PYTHON=$$(python3 -c "" > /dev/null 2>&1 && echo python3 || echo python); \
-		$$PYTHON -c "\
-import zipfile, os, sys\
-plugin_dir = '.'\
-release = sys.argv[1]\
-out = '$(PLUGIN_NAME)-' + release + '.zip'\
-ignore = set()\
-if os.path.exists('.distignore'):\
-    with open('.distignore') as f:\
-        ignore = {l.strip().lstrip('/') for l in f if l.strip() and not l.startswith('#')}\
-with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zf:\
-    for root, dirs, files in os.walk(plugin_dir):\
-        dirs[:] = [d for d in dirs if d not in ignore and not d.startswith('.')]\
-        for file in files:\
-            fp = os.path.join(root, file)\
-            arcname = os.path.join('omeka', fp[len(plugin_dir)+1:])\
-            zf.write(fp, arcname)\
-print('Package created: ' + out)\
-" $(RELEASE); \
-	fi
+	@command -v rsync >/dev/null 2>&1 || { echo "Error: rsync is required to build the package."; exit 1; }
+	@command -v zip   >/dev/null 2>&1 || { echo "Error: zip is required to build the package."; exit 1; }
+	@echo "Packaging release $(RELEASE) -> $(PLUGIN_NAME)-$(RELEASE).zip"
+	@rm -rf "$(PACKAGE_TMP)" "$(PLUGIN_NAME)-$(RELEASE).zip"
+	@mkdir -p "$(PACKAGE_TMP)/$(PLUGIN_DIR)"
+	@rsync -a --exclude-from=.distignore ./ "$(PACKAGE_TMP)/$(PLUGIN_DIR)/"
+	@cd "$(PACKAGE_TMP)" && zip -qr "$(CURDIR)/$(PLUGIN_NAME)-$(RELEASE).zip" "$(PLUGIN_DIR)"
+	@rm -rf "$(PACKAGE_TMP)"
 	@echo "Package created: $(PLUGIN_NAME)-$(RELEASE).zip"
 
 # -------------------------------------------------------

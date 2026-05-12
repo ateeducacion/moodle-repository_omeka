@@ -1,24 +1,31 @@
-/.distignore
-/.dockerignore
-/.editorconfig
-/.env
-/.env.dist
-/.git
-/.github
-/.gitignore
-/.moodle-plugin-ci.yml
-/.ci
+# Hidden files and directories (.env, .git, .github, .ci, .DS_Store, .claude, .omc, ...)
+.*
+
+# Development / build directories
+/ci/
+/docker/
+/node_modules/
+/vendor/
+/tests/
+
+# Development config files
 /Makefile
-/ci
+/blueprint.json
 /composer.json
 /composer.lock
-/docker
 /docker-compose.yml
 /docker-compose.test.yml
-/node_modules
-/tests
-/vendor
-/.phpcs.xml
-/.phpmd.xml
-/blueprint.json
-*.md
+/package.json
+/package-lock.json
+/phpcs.xml.dist
+/phpmd.xml
+
+# Internal documentation (README.md is shipped)
+/AGENTS.md
+/CLAUDE.md
+/DEVELOPMENT.md
+/CHANGELOG.md
+/CONTRIBUTING.md
+
+# Build artifacts
+repository_omeka-*.zip
