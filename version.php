@@ -18,7 +18,7 @@
  * Version package.
  *
  * @package   repository_omeka
- * @copyright 2025 Área de Tecnología Educativa <ate.educacion@gobiernodecanarias.org>
+ * @copyright 2025-2026 Área de Tecnología Educativa <ate.educacion@gobiernodecanarias.org>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
