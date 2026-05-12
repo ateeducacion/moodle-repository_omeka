@@ -190,10 +190,22 @@ class repository_omeka extends repository {
         $isimage = false;
         $ext = strtolower((string)pathinfo($tmpfile, PATHINFO_EXTENSION));
         $imageexts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
-        if (in_array($ext, $imageexts, true) && function_exists('getimagesize')) {
+        $isimagecandidate = in_array($ext, $imageexts, true);
+        if ($isimagecandidate && function_exists('imagecreatefromstring')) {
+            // imagecreatefromstring decodes the entire image and rejects
+            // truncated bytes (getimagesize only reads the header and would
+            // accept a partial PNG as valid).
+            $bytes = (string)file_get_contents($tmpfile);
+            $img = $bytes !== '' ? @imagecreatefromstring($bytes) : false;
+            if ($img !== false) {
+                $isimage = true;
+                imagedestroy($img);
+            }
+        } else if ($isimagecandidate && function_exists('getimagesize')) {
             $isimage = @getimagesize($tmpfile) !== false;
         }
-        $imageinvalid = in_array($ext, $imageexts, true) && function_exists('getimagesize') && !$isimage;
+        $imageinvalid = $isimagecandidate && !$isimage
+            && (function_exists('imagecreatefromstring') || function_exists('getimagesize'));
         if ($ok === false || $httpcode >= 400 || $size === 0 || $imageinvalid) {
             @unlink($tmpfile);
             $err = isset($curl->error) && $curl->error !== '' ? (string)$curl->error : 'transport failure';
@@ -233,7 +245,15 @@ class repository_omeka extends repository {
      * @return int
      */
     public function supported_returntypes() {
-        return FILE_INTERNAL | FILE_REFERENCE;
+        // Only FILE_INTERNAL. We deliberately do not advertise FILE_REFERENCE
+        // because the Omeka-S source URL is third-party and may not be
+        // reachable from server PHP (e.g. when running inside Moodle Playground
+        // / @php-wasm where outbound HTTPS to non-CORS-open hosts is
+        // restricted). FILE_REFERENCE would store the URL and defer downloads
+        // to thumbnail/preview generation, which would then fail and trigger
+        // send_file_not_found(). FILE_INTERNAL forces bytes to be copied at
+        // download time so the file is self-contained.
+        return FILE_INTERNAL;
     }
 
     /**
