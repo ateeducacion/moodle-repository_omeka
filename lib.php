@@ -161,7 +161,8 @@ class repository_omeka extends repository {
     public function get_file($source, $filename = '') {
         $filename = $filename !== '' ? $filename : basename((string)parse_url((string)$source, PHP_URL_PATH));
         $tmpfile = $this->prepare_file($filename);
-        $curl = new \curl();
+        // See classes/local/api_client.php for the rationale behind ignoresecurity.
+        $curl = new \curl(['ignoresecurity' => true]);
         $fp = fopen($tmpfile, 'w');
         if ($fp === false) {
             throw new \moodle_exception('cannotdownload', 'repository_omeka');

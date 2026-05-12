@@ -88,7 +88,12 @@ class api_client {
             $url .= '?' . http_build_query($params, '', '&');
         }
 
-        $curl = $this->curl ?: new \curl();
+        // ignoresecurity bypasses Moodle's curl_security_helper which calls
+        // gethostbynamel() to validate the host. That resolver is unavailable in
+        // sandboxed PHP runtimes (e.g. Moodle Playground / @php-wasm) and would
+        // otherwise reject every Omeka URL with "The URL is blocked.". Safe here
+        // because the URL is always the admin-configured Omeka baseurl.
+        $curl = $this->curl ?: new \curl(['ignoresecurity' => true]);
         $curl->setHeader(['Accept: application/json']);
         $response = $curl->get($url, [], [
             'CURLOPT_TIMEOUT' => $this->timeout,
