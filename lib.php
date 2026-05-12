@@ -182,14 +182,28 @@ class repository_omeka extends repository {
         // file picker later 500s with "file not found" trying to generate a
         // thumbnail. Surface the failure with diagnostics so the picker shows
         // a real error instead.
-        if ($ok === false || $httpcode >= 400 || $size === 0) {
+        $head = $size > 0 ? bin2hex((string)file_get_contents($tmpfile, false, null, 0, 16)) : '';
+        // tcpOverFetch in the WASM playground can also truncate the chunked
+        // body mid-stream and leave curl thinking the transfer was a clean 200
+        // OK with a partial body. For image targets, validate the file is a
+        // readable image; if not, treat it as a failed download.
+        $isimage = false;
+        $ext = strtolower((string)pathinfo($tmpfile, PATHINFO_EXTENSION));
+        $imageexts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+        if (in_array($ext, $imageexts, true) && function_exists('getimagesize')) {
+            $isimage = @getimagesize($tmpfile) !== false;
+        }
+        $imageinvalid = in_array($ext, $imageexts, true) && function_exists('getimagesize') && !$isimage;
+        if ($ok === false || $httpcode >= 400 || $size === 0 || $imageinvalid) {
             @unlink($tmpfile);
             $err = isset($curl->error) && $curl->error !== '' ? (string)$curl->error : 'transport failure';
+            $reason = $imageinvalid ? 'corrupted image' : $err;
             throw new \moodle_exception(
                 'repositoryomeka_apierror',
                 'repository_omeka',
                 '',
-                $source . ' -> download failed: ' . $err . ' (http=' . $httpcode . ', size=' . $size . ')'
+                $source . ' -> download failed: ' . $reason
+                    . ' (http=' . $httpcode . ', size=' . $size . ', head=' . $head . ')'
             );
         }
         return ['path' => $tmpfile];
