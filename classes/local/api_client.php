@@ -107,12 +107,13 @@ class api_client {
         $errno = method_exists($curl, 'get_errno') ? (int)$curl->get_errno() : 0;
 
         if ($errno !== 0 || $response === false) {
-            $err = method_exists($curl, 'error') ? (string)$curl->error : 'transport error';
+            // $curl->error is a property on Moodle's \curl wrapper, not a method.
+            $err = isset($curl->error) && $curl->error !== '' ? (string)$curl->error : 'transport error';
             throw new \moodle_exception(
                 'repositoryomeka_apierror',
                 'repository_omeka',
                 '',
-                $url . ' -> ' . $err
+                $url . ' -> ' . $err . ' (errno=' . $errno . ', http=' . $httpcode . ')'
             );
         }
 
