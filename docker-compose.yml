@@ -17,7 +17,7 @@ services:
       - ./docker/mysql-init/02-create-omeka.sql:/docker-entrypoint-initdb.d/02-create-omeka.sql:ro
 
   moodle:
-    image: erseco/alpine-moodle
+    image: erseco/alpine-moodle:v5.0.5
     restart: unless-stopped
     depends_on:
       - mariadb
@@ -39,18 +39,60 @@ services:
       MOODLE_PASSWORD: PLEASE_CHANGEME
       PRE_CONFIGURE_COMMANDS: |
         echo 'This is a pre-configure command'
+      OMEKA_BASEURL: https://dev.omeka.org/omeka-s-sandbox
       POST_CONFIGURE_COMMANDS: |
-        echo 'This is a post-configure command'
-        echo 'Forcing upgrade to re-install the plugin...'
+        echo '== Running Moodle upgrade =='
         php admin/cli/upgrade.php --non-interactive
-        if ! moosh course-list "shortname='omeka-test'" | grep -q 'omeka-test'; then
-          moosh course-create --category 1 --fullname "Test Course for Omeka" --shortname "omeka-test"
+        echo '== Ensuring "Test Courses" category and demo course =='
+        if ! moosh course-list "shortname='OMEKA01'" | grep -q 'OMEKA01'; then
+          moosh course-create --category 1 --fullname "Omeka Repository Test Course" --shortname "OMEKA01"
         fi
-        echo 'Configuring Omeka repository...'
-        # moosh plugin-enable repository_omeka
-        # moosh repository-add omeka "Omeka S" --baseurl=http://omeka:8080 --siteid=1 || true
-        echo 'Ensuring demo course exists...'
-        moosh course-create -r -c 1 -f "Curso de prueba" omeka-demo || true
+        echo '== Enabling repository_omeka and creating Omeka Sandbox instance =='
+        php -d display_errors=1 -r '
+          define("CLI_SCRIPT", true);
+          require("/var/www/html/config.php");
+          $baseurl = getenv("OMEKA_BASEURL") ?: "https://dev.omeka.org/omeka-s-sandbox";
+          $now = time();
+          // Repository type row: ensure it exists, visible, with sortorder.
+          $row = $DB->get_record("repository", ["type" => "omeka"]);
+          if ($row) {
+              $typeid = (int)$row->id;
+              $DB->set_field("repository", "visible", 1, ["id" => $typeid]);
+          } else {
+              $max = (int)$DB->get_field_sql("SELECT MAX(sortorder) FROM {repository}");
+              $rec = (object)["type" => "omeka", "visible" => 1, "sortorder" => $max + 1];
+              $typeid = (int)$DB->insert_record("repository", $rec);
+          }
+          // Plugin-level options (equivalent to ticking both boxes on /admin/repository.php).
+          set_config("enablecourseinstances", 1, "omeka");
+          set_config("enableuserinstances", 1, "omeka");
+          // System-context instance pointing at the configured Omeka URL.
+          $ctx = context_system::instance();
+          $existing = $DB->get_record("repository_instances", [
+              "typeid" => $typeid, "contextid" => $ctx->id,
+          ]);
+          if (!$existing) {
+              $inst = (object)[
+                  "name" => "Omeka Sandbox", "typeid" => $typeid, "userid" => 0,
+                  "contextid" => $ctx->id, "username" => "", "password" => "",
+                  "timecreated" => $now, "timemodified" => $now, "readonly" => 0,
+              ];
+              $instanceid = (int)$DB->insert_record("repository_instances", $inst);
+              foreach ([
+                  "baseurl" => $baseurl, "siteid" => "0",
+                  "keyidentity" => "", "keycredential" => "",
+                  "acceptedtypes" => "", "sitelabel" => "", "siteslug" => "",
+              ] as $n => $v) {
+                  $DB->insert_record("repository_instance_config",
+                      (object)["instanceid" => $instanceid, "name" => $n, "value" => $v]);
+              }
+              echo "Omeka Sandbox instance created (typeid=$typeid, instanceid=$instanceid) -> $baseurl" . PHP_EOL;
+          } else {
+              echo "Omeka Sandbox instance already exists (typeid=$typeid, instanceid={$existing->id})" . PHP_EOL;
+          }
+        '
+        echo '== Ensuring admin is enrolled as editingteacher in OMEKA01 =='
+        moosh course-enrol -r editingteacher OMEKA01 admin || true
 
     volumes:
       - moodledata:/var/moodledata
