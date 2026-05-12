@@ -122,11 +122,13 @@ class api_client {
 
         $body = json_decode((string)$response, true);
         if (!is_array($body)) {
+            $raw = (string)$response;
+            $preview = strlen($raw) > 200 ? substr($raw, 0, 200) . '…' : $raw;
             throw new \moodle_exception(
                 'repositoryomeka_apierror',
                 'repository_omeka',
                 '',
-                $url . ' -> invalid JSON'
+                $url . ' -> invalid JSON (http=' . $httpcode . ', len=' . strlen($raw) . ', body=' . $preview . ')'
             );
         }
 
