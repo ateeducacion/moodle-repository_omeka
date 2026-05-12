@@ -33,3 +33,5 @@ node_modules/
 # AMD build output (regenerated)
 amd/build/
 .omc/
+
+.claude/
