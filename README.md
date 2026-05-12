@@ -2,24 +2,31 @@
 
 [![Preview in Moodle Playground](https://raw.githubusercontent.com/ateeducacion/action-moodle-playground-pr-preview/refs/heads/main/assets/playground-preview-button.svg)](https://ateeducacion.github.io/moodle-playground/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/moodle-repository_omeka/refs/heads/main/blueprint.json)
 
+Moodle repository plugin that connects Moodle with one or more
+[Omeka-S](https://omeka.org/s/) instances, so digital resources can be searched
+and inserted from Moodle's file picker.
+
+File searches use the Omeka-S REST API and results are paginated to avoid
+loading every item at once. Navigation starts on the available item sets, and
+upon selecting one the items belonging to that set are listed.
+
 ## Try in Moodle Playground
 
-Click the badge above to open the `main` branch instantly in Moodle Playground with the plugin pre-installed.
+Click the badge above to open the `main` branch instantly in Moodle Playground
+with the plugin pre-installed. Every pull request automatically generates a
+playground preview link appended to the PR description, so reviewers can test
+the changes in a live Moodle instance without any local setup.
 
-Every pull request automatically generates a playground preview link appended to the PR description, so reviewers can test the changes in a live Moodle instance without any local setup.
-
-This plugin allows you to connect Moodle with one or more Omeka-S instances, making it easy to integrate and access digital resources stored in Omeka-S from Moodle's file picker.
-
-## Description
-
-With this plugin, you can link Omeka-S resources directly in Moodle, allowing users to search, select, and reuse digital objects and collections managed in Omeka-S.
-
-File searches are performed through the Omeka-S REST API, and results are paginated to avoid loading all items at once.
-Navigation starts by displaying the available item sets, and upon selecting one, the items belonging to that set are listed.
+You can also point the plugin at the public Omeka-S sandbox
+(<https://dev.omeka.org/omeka-s-sandbox/>) — it is the default URL used by the
+"Omeka Sandbox" repository instance pre-configured in the development
+environment, and works as a zero-setup target for evaluating the plugin.
 
 ## Compatibility
 
-The plugin's minimum required Moodle version is **Moodle 3.11** (`version.php`: `$plugin->requires = 2021041900`). Every push and pull request is verified through a CI matrix (`moodle-ci.yml`) on the following branches:
+The plugin's minimum required Moodle version is **Moodle 3.11**
+(`version.php`: `$plugin->requires = 2021041900`). Every push and pull request
+is verified through a CI matrix (`moodle-ci.yml`) on the following branches:
 
 | Moodle branch         | PHP        | Status                              |
 | --------------------- | ---------- | ----------------------------------- |
@@ -27,60 +34,80 @@ The plugin's minimum required Moodle version is **Moodle 3.11** (`version.php`: 
 | 4.5.x (LTS)           | 8.2, 8.3   | Supported (verified in CI)          |
 | 5.0.x                 | 8.2, 8.3   | Supported (verified in CI)          |
 
-Older releases down to the declared minimum (Moodle 3.11) and newer releases (5.1.x, 5.2.x) are expected to work but are not part of the CI matrix yet. If you find an incompatibility please open an issue at <https://github.com/ateeducacion/moodle-repository_omeka/issues>.
+Older releases down to the declared minimum (Moodle 3.11) and newer releases
+(5.1.x, 5.2.x) are expected to work but are not part of the CI matrix yet. If
+you find an incompatibility please open an issue at
+<https://github.com/ateeducacion/moodle-repository_omeka/issues>.
 
 ### Requirements
 
-* **Moodle**: 3.11 or later (CI-verified on 4.4 LTS, 4.5 LTS and 5.0; expected to keep working on newer releases up to 5.2.x).
-* **PHP**: 8.2 or 8.3 (CI matrix); any PHP supported by the Moodle release in use.
-* **Database**: PostgreSQL or MariaDB (CI-verified); any database supported by Moodle should work.
+* **Moodle**: 3.11 or later (CI-verified on 4.4 LTS, 4.5 LTS and 5.0; expected
+  to keep working on newer releases up to 5.2.x).
+* **PHP**: 8.2 or 8.3 (CI matrix); any PHP supported by the Moodle release in
+  use.
+* **Database**: PostgreSQL or MariaDB (CI-verified); any database supported by
+  Moodle should work.
 * **Browser**: any modern, evergreen browser with JavaScript enabled.
-* **Omeka-S**: a reachable [Omeka-S](https://omeka.org/s/) instance with the REST API exposed; API key data (`key_identity` and `key_credential`) is optional and only needed for accessing non-public content.
+* **Omeka-S**: a reachable [Omeka-S](https://omeka.org/s/) instance with the
+  REST API exposed. API key data (`key_identity` and `key_credential`) is
+  optional and only needed for accessing non-public content. For evaluation,
+  you can target the public sandbox at
+  <https://dev.omeka.org/omeka-s-sandbox/>.
 
 ## Installation
 
-1. Download the latest ZIP from the [Releases](https://github.com/ateeducacion/moodle-repository_omeka/releases) page, or copy the plugin directory into `repository/omeka` inside your Moodle installation.
-2. Go to Site administration and complete the installation.
-3. Create repository instances by specifying the URL of each Omeka-S installation, the site you want to display, and, if necessary, the API key data (`key_identity` and `key_credential`). These keys are optional for accessing public content.
+> **Recommended:** install from a
+> [release ZIP](https://github.com/ateeducacion/moodle-repository_omeka/releases).
+> Release ZIPs are produced by `release.yml` (or `make package RELEASE=X.Y.Z`)
+> and only contain the files Moodle actually needs — no `tests/`, no Docker,
+> no CI tooling, no hidden files.
 
-## Local Testing (Docker + moodle-plugin-ci)
+### Installing via uploaded ZIP file (recommended)
 
-The repository includes a lightweight, dockerised setup to run the plugin's checks and PHPUnit locally without installing MySQL on your host.
+1. Download the latest ZIP from the
+   [Releases](https://github.com/ateeducacion/moodle-repository_omeka/releases)
+   page.
+2. Log in to your Moodle site as an admin and go to
+   _Site administration > Plugins > Install plugins_.
+3. Upload the ZIP file with the plugin code. The plugin type should be
+   detected automatically (`repository`).
+4. Check the plugin validation report and finish the installation.
 
-- Quick start:
-  - `make test`: brings up a minimal MariaDB (`docker-compose.test.yml`, port `127.0.0.1:3307`), prepares a cached Moodle under `.ci/`, and runs PHPUnit via `moodle-plugin-ci`.
-  - `make check`: runs analysis (linters/validators) and tests.
+### Installing manually
 
-- Useful helpers:
-  - `make test-up` / `make test-down`: start/stop the minimal DB.
-  - `make test-reset`: drop the CI database used by `make test` safely.
-  - `make ci-clean`: remove the cached Moodle and moodledata under `.ci/` if you want a fresh bootstrap.
+1. Download and extract the latest ZIP from the
+   [Releases](https://github.com/ateeducacion/moodle-repository_omeka/releases)
+   page.
+2. Place the extracted contents in `{your/moodle/dirroot}/repository/omeka`.
+3. Log in to your Moodle site as an admin and go to
+   _Site administration > Notifications_ to complete the installation.
 
-- Configuration knobs (override per run, e.g. `make test CI_NO_INIT=`):
-  - `TEST_DB_PORT` (default `3307`): host port for the test DB.
-  - `CI_NODE_VERSION` (default `22.12.0`): Node version used by `moodle-plugin-ci install` when it needs Node.
-  - `CI_NO_INIT` (default `1`): skip Moodle core init (grunt) during install to avoid Node version mismatches. Set empty to enable init.
-  - `CI_NO_PLUGIN_NODE` (default `1`): skip plugin Node tasks during install. Set empty to enable.
-  - `CI_RESET_DB_ON_INSTALL` (default `1`): drop the CI DB before the first install to avoid "database exists" errors.
+Alternatively, you can run
 
-- Node 22 tip (macOS/Homebrew):
-  - Install `node@22` (`brew install node@22`). The Makefile will prefer Homebrew's Node 22 for the install step automatically.
+    $ php admin/cli/upgrade.php
 
-- Troubleshooting:
-  - "Node version not satisfied": ensure Node 22 is available (see above) or run with `CI_NO_INIT=` to allow core init only when you have Node 22, or use `make ci-clean` then `make test` after adjusting Node.
-  - "database exists": use `make test-reset` to drop the test DB, or `make ci-clean` to clear the cached environment.
+to complete the installation from the command line.
 
-## CI
+## Configuration
 
-Every push and pull request runs a full matrix via GitHub Actions (`moodle-ci.yml`). See the [Compatibility](#compatibility) section above for the exact Moodle / PHP / database combinations covered.
+1. Go to _Site administration > Plugins > Repositories > Manage repositories_
+   and enable **Omeka**.
+2. Create one repository instance per Omeka-S installation, specifying the
+   instance URL, the site you want to display and, if you need access to
+   non-public content, the API key data (`key_identity` and `key_credential`).
+   These keys are **optional** for public content.
+3. For a zero-setup evaluation you can point an instance at the public
+   sandbox <https://dev.omeka.org/omeka-s-sandbox/> — no API key required.
 
-Each combination runs: PHP lint, PHP Mess Detector, Moodle Code Checker (PHPCS), plugin validation, upgrade savepoints, Mustache lint, PHPUnit, and Behat.
+## Development
 
-Release ZIPs are built and attached to GitHub Releases automatically via `release.yml` on each published release.
+For local development, Docker stack details, `moodle-plugin-ci` usage, CI
+matrix and packaging, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Support
 
-- For issues or suggestions, use the **Issues** section in the GitHub repository.
+For issues or suggestions, use the **Issues** section in the
+[GitHub repository](https://github.com/ateeducacion/moodle-repository_omeka/issues).
 
 ## License
 
@@ -90,7 +117,8 @@ Copyright 2025-2026 Área de Tecnología Educativa.
 
 ## Author and Contact
 
-Developed by the **Área de Tecnología Educativa** of the Government of the Canary Islands.
+Developed by the **Área de Tecnología Educativa** of the Government of the
+Canary Islands.
 
 - **Email:** [ate.educacion@gobiernodecanarias.org](mailto:ate.educacion@gobiernodecanarias.org)
 - **Web:** [www.gobiernodecanarias.org/educacion](https://www.gobiernodecanarias.org/educacion)

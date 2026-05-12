@@ -73,24 +73,31 @@ repository_omeka/
 
 ## Build, Test, and Development Commands
 
+The full development, local-testing and CI workflow lives in
+[DEVELOPMENT.md](DEVELOPMENT.md). Quick reference for the targets you will use
+most often:
+
 ```bash
-make upd             # Start Docker services in background (Moodle + Omeka-S + DB)
-make up              # Start Docker services in foreground
-make down            # Stop Docker services
-make shell           # Open interactive shell in the Moodle container
-make ci-deps         # Install moodle-plugin-ci into ./ci (run once)
-make lint            # Run phplint + phpmd + phpcs (no tests)
-make phpcs           # Moodle CodeSniffer standard only
-make phpcbf          # Auto-fix CodeSniffer violations
-make phpmd           # PHP Mess Detector
-make test            # Run PHPUnit tests via minimal DB stack
-make behat           # Run Behat scenarios tagged @repository_omeka
-make check           # Full CI suite: analysis + tests
-make package VERSION=X.Y.Z  # Build distributable ZIP
-make clean           # Remove containers, volumes, orphans
+make upd                     # Start Docker services in background (Moodle + MariaDB + Omeka sandbox)
+make up                      # Start Docker services in foreground
+make down                    # Stop Docker services
+make shell                   # Open interactive shell in the Moodle container
+make ci-deps                 # Install moodle-plugin-ci into ./ci (run once)
+make lint                    # phplint + phpmd + phpcs
+make phpcs                   # Moodle CodeSniffer standard only
+make phpcbf                  # Auto-fix CodeSniffer violations
+make phpmd                   # PHP Mess Detector
+make test                    # PHPUnit via minimal DB stack
+make behat                   # Behat scenarios tagged @repository_omeka
+make check                   # Full CI suite: analysis + tests
+make package RELEASE=X.Y.Z   # Build distributable ZIP (honours .distignore)
+make clean                   # Remove containers, volumes, orphans
 ```
 
-Run `make ci-deps` before any `make lint / test / behat / check` on a fresh checkout.
+Run `make ci-deps` before any `make lint / test / behat / check` on a fresh
+checkout. For the full list of targets, knobs (`TEST_DB_PORT`, `MOODLE_REF`,
+`CI_NODE_VERSION`, …) and troubleshooting tips, read
+[DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Coding Style & Naming Conventions
 
@@ -135,10 +142,18 @@ Run `make ci-deps` before any `make lint / test / behat / check` on a fresh chec
 
 ## Releases
 
-- Publish a GitHub Release (tag `vX.Y.Z`) to trigger `.github/workflows/release.yml`.
-  The workflow builds and uploads the plugin ZIP automatically.
-- To build locally: `make package VERSION=X.Y.Z`
-  (creates `repository_omeka-X.Y.Z.zip` excluding files listed in `.distignore`).
+- Publish a GitHub Release (tag `vX.Y.Z`) to trigger
+  `.github/workflows/release.yml`. The workflow runs `make package RELEASE=$TAG`
+  and uploads the resulting ZIP to the release. The same workflow can also be
+  triggered manually from the Actions tab (`workflow_dispatch`).
+- To build locally: `make package RELEASE=X.Y.Z`
+  (creates `repository_omeka-X.Y.Z.zip`, staging the tree via
+  `rsync --exclude-from=.distignore` so all dotfiles, `tests/`, `docker/`,
+  `vendor/`, `node_modules/`, CI tooling and dev configs are stripped; the ZIP
+  root is `omeka/` so it can be uploaded directly from
+  _Site administration > Plugins > Install plugins_).
+- See [DEVELOPMENT.md](DEVELOPMENT.md#releases--packaging) for the full
+  packaging contract and the list of patterns honoured by `.distignore`.
 
 ## Security & Configuration Tips
 
