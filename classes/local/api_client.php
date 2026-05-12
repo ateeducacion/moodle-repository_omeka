@@ -88,11 +88,12 @@ class api_client {
             $url .= '?' . http_build_query($params, '', '&');
         }
 
-        // ignoresecurity bypasses Moodle's curl_security_helper which calls
-        // gethostbynamel() to validate the host. That resolver is unavailable in
-        // sandboxed PHP runtimes (e.g. Moodle Playground / @php-wasm) and would
-        // otherwise reject every Omeka URL with "The URL is blocked.". Safe here
-        // because the URL is always the admin-configured Omeka baseurl.
+        // The ignoresecurity flag bypasses Moodle's curl_security_helper which
+        // calls gethostbynamel() to validate the host. That resolver is
+        // unavailable in sandboxed PHP runtimes (e.g. Moodle Playground /
+        // @php-wasm) and would otherwise reject every Omeka URL with "The URL
+        // is blocked.". Safe here because the URL is always the
+        // admin-configured Omeka baseurl.
         $curl = $this->curl ?: new \curl(['ignoresecurity' => true]);
         $curl->setHeader(['Accept: application/json']);
         $response = $curl->get($url, [], [
@@ -107,7 +108,7 @@ class api_client {
         $errno = method_exists($curl, 'get_errno') ? (int)$curl->get_errno() : 0;
 
         if ($errno !== 0 || $response === false) {
-            // $curl->error is a property on Moodle's \curl wrapper, not a method.
+            // Note: $curl->error is a property on Moodle's \curl wrapper, not a method.
             $err = isset($curl->error) && $curl->error !== '' ? (string)$curl->error : 'transport error';
             throw new \moodle_exception(
                 'repositoryomeka_apierror',

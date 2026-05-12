@@ -104,7 +104,7 @@ class entry_factory {
             }
         }
 
-        return [
+        $entry = [
             'title' => $title,
             'source' => $fileurl,
             'filename' => $filename !== '' ? $filename : ('file-' . ($media['o:id'] ?? 'x')),
@@ -116,12 +116,18 @@ class entry_factory {
             'license' => $license,
             'licenseurl' => $licurl,
             'mimetype' => $mimetype,
-            'size' => $size,
-            'filesize' => $size,
             'date' => $datemodified ?: ($datecreated ?: 0),
             'datecreated' => $datecreated ?: 0,
             'datemodified' => $datemodified ?: 0,
         ];
+        // Omeka-S returns o:size = null for media ingested by URL (e.g. Wikimedia
+        // images, oEmbed), so we only advertise size when it is actually known —
+        // otherwise the file picker would render a misleading "0 bytes".
+        if ($size > 0) {
+            $entry['size'] = $size;
+            $entry['filesize'] = $size;
+        }
+        return $entry;
     }
 
     /**

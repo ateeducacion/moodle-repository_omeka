@@ -183,7 +183,7 @@ class repository_omeka extends repository {
         // thumbnail. Surface the failure with diagnostics so the picker shows
         // a real error instead.
         $head = $size > 0 ? bin2hex((string)file_get_contents($tmpfile, false, null, 0, 16)) : '';
-        // tcpOverFetch in the WASM playground can also truncate the chunked
+        // The WASM playground's tcpOverFetch can also truncate the chunked
         // body mid-stream and leave curl thinking the transfer was a clean 200
         // OK with a partial body. For image targets, validate the file is a
         // readable image; if not, treat it as a failed download.
@@ -192,14 +192,13 @@ class repository_omeka extends repository {
         $imageexts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
         $isimagecandidate = in_array($ext, $imageexts, true);
         if ($isimagecandidate && function_exists('imagecreatefromstring')) {
-            // imagecreatefromstring decodes the entire image and rejects
-            // truncated bytes (getimagesize only reads the header and would
-            // accept a partial PNG as valid).
+            // Use imagecreatefromstring (not getimagesize) because it decodes
+            // the entire image and rejects truncated bytes; getimagesize only
+            // reads the header and would accept a partial PNG as valid.
             $bytes = (string)file_get_contents($tmpfile);
             $img = $bytes !== '' ? @imagecreatefromstring($bytes) : false;
             if ($img !== false) {
                 $isimage = true;
-                imagedestroy($img);
             }
         } else if ($isimagecandidate && function_exists('getimagesize')) {
             $isimage = @getimagesize($tmpfile) !== false;
