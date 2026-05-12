@@ -167,15 +167,30 @@ class repository_omeka extends repository {
         if ($fp === false) {
             throw new \moodle_exception('cannotdownload', 'repository_omeka');
         }
-        $curl->download_one($source, [], [
+        $ok = $curl->download_one($source, [], [
             'file' => $fp,
             'CURLOPT_FOLLOWLOCATION' => 1,
             'CURLOPT_TIMEOUT' => self::API_TIMEOUT * 6,
         ]);
         fclose($fp);
         $info = $curl->get_info();
-        if ((int)($info['http_code'] ?? 0) >= 400) {
-            throw new \moodle_exception('cannotdownload', 'repository_omeka');
+        $httpcode = (int)($info['http_code'] ?? 0);
+        $size = file_exists($tmpfile) ? (int)filesize($tmpfile) : 0;
+        // A silent transport failure (e.g. tcpOverFetch dropping a chunked body in
+        // the WASM runtime) leaves the file at zero bytes but does not set an
+        // http_code. Without this check Moodle stores an empty file and the
+        // file picker later 500s with "file not found" trying to generate a
+        // thumbnail. Surface the failure with diagnostics so the picker shows
+        // a real error instead.
+        if ($ok === false || $httpcode >= 400 || $size === 0) {
+            @unlink($tmpfile);
+            $err = isset($curl->error) && $curl->error !== '' ? (string)$curl->error : 'transport failure';
+            throw new \moodle_exception(
+                'repositoryomeka_apierror',
+                'repository_omeka',
+                '',
+                $source . ' -> download failed: ' . $err . ' (http=' . $httpcode . ', size=' . $size . ')'
+            );
         }
         return ['path' => $tmpfile];
     }
