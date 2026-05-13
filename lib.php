@@ -384,13 +384,18 @@ class repository_omeka extends repository {
         // for Omeka filestore media — `upload`, `file_sideload`, ...).
         // FILE_EXTERNAL: store a URL reference so non-binary linked media
         // (oEmbed videos, IIIF manifests, `url` / `html` ingesters) can be
-        // picked without trying to copy bytes that don't exist.
-        // We deliberately do not advertise FILE_REFERENCE because Moodle would
-        // then defer downloads to thumbnail/preview generation, which would
-        // fail when the source host is third-party or unreachable from server
-        // PHP (e.g. inside Moodle Playground / @php-wasm where outbound HTTPS
-        // to non-CORS-open hosts is restricted).
-        return FILE_INTERNAL | FILE_EXTERNAL;
+        // picked without trying to copy bytes that don't exist. Used by
+        // mod_url and the rich text editor's "Insert link" / "Insert image".
+        // FILE_REFERENCE: store an alias that Moodle re-resolves on demand.
+        // mod_file's MoodleQuickForm_filemanager only offers the
+        // "Make a copy / Create an alias" radio when the repository
+        // advertises FILE_REFERENCE — without it the picker in mod_file
+        // collapses to FILE_INTERNAL-only and users cannot pick the
+        // hot-linked behaviour we want for Omeka filestore media.
+        // For linked media the alias still rejects the initial fetch in
+        // {@see get_file()}, telling the user to pick "Create a link" in
+        // a context that accepts FILE_EXTERNAL (mod_url / the editor).
+        return FILE_INTERNAL | FILE_EXTERNAL | FILE_REFERENCE;
     }
 
     /**

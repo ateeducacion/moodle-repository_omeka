@@ -85,20 +85,22 @@ final class repository_omeka_test extends advanced_testcase {
     }
 
     /**
-     * The repository must advertise both FILE_INTERNAL (binary copy) and
-     * FILE_EXTERNAL (URL hot-link) so the picker can pick the right mode for
-     * each entry — binary media defaults to internal, linked media (oEmbed,
-     * IIIF, url, html) defaults to the external link.
+     * The repository must advertise FILE_INTERNAL (binary copy), FILE_EXTERNAL
+     * (URL hot-link) **and** FILE_REFERENCE (alias). The reference mode is what
+     * lets mod_file's filemanager show the "Make a copy / Create an alias"
+     * radio — mod_file's MoodleQuickForm_filemanager is built with
+     * `return_types = FILE_INTERNAL | FILE_REFERENCE | FILE_CONTROLLED_LINK`,
+     * so without FILE_REFERENCE the intersection collapses to FILE_INTERNAL
+     * only and the radio never appears.
      */
-    public function test_supported_returntypes_includes_both(): void {
+    public function test_supported_returntypes_includes_internal_external_and_reference(): void {
         $reflection = new \ReflectionClass(\repository_omeka::class);
         $method = $reflection->getMethod('supported_returntypes');
         $instance = $reflection->newInstanceWithoutConstructor();
         $returntypes = (int)$method->invoke($instance);
         $this->assertSame(FILE_INTERNAL, $returntypes & FILE_INTERNAL);
         $this->assertSame(FILE_EXTERNAL, $returntypes & FILE_EXTERNAL);
-        // FILE_REFERENCE intentionally not advertised (see lib.php comment).
-        $this->assertSame(0, $returntypes & FILE_REFERENCE);
+        $this->assertSame(FILE_REFERENCE, $returntypes & FILE_REFERENCE);
     }
 
     /**
