@@ -208,11 +208,29 @@ class repository_omeka extends repository {
     /**
      * Return a cached filetype filter.
      *
+     * The filter combines two independent allowlists:
+     *
+     *  - The instance-level `acceptedtypes` option set by the admin in the
+     *    repository configuration form.
+     *  - The per-pick `accepted_types` array Moodle forwards from the form
+     *    that opened the file picker, exposed on `$this->options['mimetypes']`
+     *    by the base {@see repository} class (so e.g. a `mod_resource`
+     *    instance configured to accept only `web_image` narrows the listing
+     *    even when the admin's `acceptedtypes` is broader).
+     *
+     * Empty / wildcard inputs short-circuit so the filter is a no-op when
+     * neither side has configured restrictions.
+     *
      * @return filetype_filter
      */
     private function get_filetype_filter(): filetype_filter {
         if ($this->filter === null) {
-            $this->filter = new filetype_filter((string)$this->get_option('acceptedtypes'));
+            $filter = new filetype_filter((string)$this->get_option('acceptedtypes'));
+            $pickertypes = $this->options['mimetypes'] ?? null;
+            if (is_array($pickertypes)) {
+                $filter = $filter->intersect($pickertypes);
+            }
+            $this->filter = $filter;
         }
         return $this->filter;
     }
