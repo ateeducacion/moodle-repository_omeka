@@ -46,6 +46,14 @@ class repository_omeka extends repository {
     /** @var int Default API timeout in seconds. */
     const API_TIMEOUT = 10;
 
+    /**
+     * Fallback CORS proxy used inside Moodle Playground when the playground
+     * runtime did not export MOODLE_PLAYGROUND_PROXY_URL (older builds).
+     * Never used in a normal Moodle install because the playground gate
+     * (MOODLE_PLAYGROUND constant) is required.
+     */
+    const PLAYGROUND_CORS_PROXY_FALLBACK = 'https://github-proxy.exelearning.dev/?url=';
+
     /** @var api_client|null Lazily built API client. */
     private $client;
 
@@ -54,6 +62,52 @@ class repository_omeka extends repository {
 
     /** @var filetype_filter|null Lazily built filetype filter. */
     private $filter;
+
+    /**
+     * Wrap a URL with the Moodle Playground CORS proxy when running inside
+     * Moodle Playground; return it unchanged in a normal Moodle install.
+     *
+     * The playground's @php-wasm tcpOverFetch otherwise tries a direct
+     * fetch first and only falls back to its configured proxy when the
+     * direct call fails by CORS, producing a noisy first-request CORS
+     * error in the browser console even though the request eventually
+     * succeeds. Emitting an already-proxied URL bypasses that path.
+     *
+     * Gated on the MOODLE_PLAYGROUND constant that the playground runtime
+     * injects into Moodle's config.php; when the constant is absent the
+     * helper short-circuits and the plugin behaves identically to before.
+     *
+     * @param string $url Absolute URL to wrap.
+     * @return string Wrapped URL inside the playground, original otherwise.
+     */
+    public static function wrap_cors_proxy(string $url): string {
+        $isplayground = defined('MOODLE_PLAYGROUND') && MOODLE_PLAYGROUND;
+        $proxyurl = defined('MOODLE_PLAYGROUND_PROXY_URL')
+            ? (string)MOODLE_PLAYGROUND_PROXY_URL
+            : '';
+        return self::wrap_url_with_proxy($url, $isplayground, $proxyurl);
+    }
+
+    /**
+     * Pure implementation of {@see wrap_cors_proxy()} that takes the playground
+     * state as explicit parameters instead of reading the MOODLE_PLAYGROUND /
+     * MOODLE_PLAYGROUND_PROXY_URL constants directly. Exposed so unit tests
+     * can cover every gating case without resorting to runInSeparateProcess
+     * (which re-boots Moodle core and trips unrelated PHP 8.5 deprecation
+     * warnings that PHPUnit --fail-on-warning misreports as test failures).
+     *
+     * @param string $url Absolute URL to wrap.
+     * @param bool $isplayground Whether the playground gate is active.
+     * @param string $proxyurl Proxy URL configured by the playground (may be empty).
+     * @return string Wrapped URL when the gate is active, original otherwise.
+     */
+    public static function wrap_url_with_proxy(string $url, bool $isplayground, string $proxyurl): string {
+        if ($url === '' || !$isplayground) {
+            return $url;
+        }
+        $proxy = $proxyurl !== '' ? $proxyurl : self::PLAYGROUND_CORS_PROXY_FALLBACK;
+        return $proxy . rawurlencode($url);
+    }
 
     /**
      * Return a cached API client built from the instance options.
@@ -167,7 +221,12 @@ class repository_omeka extends repository {
         if ($fp === false) {
             throw new \moodle_exception('cannotdownload', 'repository_omeka');
         }
-        $ok = $curl->download_one($source, [], [
+        // wrap_cors_proxy() routes the URL through the playground proxy when
+        // running inside Moodle Playground (constant MOODLE_PLAYGROUND set) so
+        // tcpOverFetch does not waste a direct CORS-failing first attempt;
+        // outside the playground it returns $source unchanged.
+        $proxied = self::wrap_cors_proxy((string)$source);
+        $ok = $curl->download_one($proxied, [], [
             'file' => $fp,
             'CURLOPT_FOLLOWLOCATION' => 1,
             'CURLOPT_TIMEOUT' => self::API_TIMEOUT * 6,
