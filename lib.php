@@ -29,6 +29,7 @@ require_once("{$CFG->libdir}/filelib.php");
 
 use repository_omeka\local\api_client;
 use repository_omeka\local\filetype_filter;
+use repository_omeka\local\ingester_classifier;
 use repository_omeka\local\instance_form;
 use repository_omeka\local\listing_builder;
 
@@ -215,11 +216,25 @@ class repository_omeka extends repository {
     /**
      * Download a remote file from Omeka-S into a temp file.
      *
-     * @param string $source File URL.
+     * @param string $source File URL (binary media) or "linked:<url>" marker
+     *                       value for linked media (oEmbed/IIIF/url/html).
      * @param string $filename Optional desired filename.
      * @return array With key 'path' pointing at the temp file.
      */
     public function get_file($source, $filename = '') {
+        // Linked media (oEmbed iframe, IIIF manifest, raw URL, HTML snippet)
+        // cannot be downloaded as a binary file — the only meaningful Moodle
+        // representation is a URL reference (FILE_EXTERNAL). We reach this
+        // path only when the user picked the default "Make a copy" option;
+        // surface a clear instruction instead of silently failing in curl.
+        if (is_string($source) && ingester_classifier::is_linked($source)) {
+            throw new \moodle_exception(
+                'linkedmedianotdownloadable',
+                'repository_omeka',
+                '',
+                ingester_classifier::strip_marker($source)
+            );
+        }
         $filename = $filename !== '' ? $filename : basename((string)parse_url((string)$source, PHP_URL_PATH));
         $tmpfile = $this->prepare_file($filename);
         // See classes/local/api_client.php for the rationale behind ignoresecurity.
@@ -310,15 +325,44 @@ class repository_omeka extends repository {
      * @return int
      */
     public function supported_returntypes() {
-        // Only FILE_INTERNAL. We deliberately do not advertise FILE_REFERENCE
-        // because the Omeka-S source URL is third-party and may not be
-        // reachable from server PHP (e.g. when running inside Moodle Playground
-        // / @php-wasm where outbound HTTPS to non-CORS-open hosts is
-        // restricted). FILE_REFERENCE would store the URL and defer downloads
-        // to thumbnail/preview generation, which would then fail and trigger
-        // send_file_not_found(). FILE_INTERNAL forces bytes to be copied at
-        // download time so the file is self-contained.
-        return FILE_INTERNAL;
+        // FILE_INTERNAL: download a copy of the binary into Moodle (default
+        // for Omeka filestore media — `upload`, `file_sideload`, ...).
+        // FILE_EXTERNAL: store a URL reference so non-binary linked media
+        // (oEmbed videos, IIIF manifests, `url` / `html` ingesters) can be
+        // picked without trying to copy bytes that don't exist.
+        // We deliberately do not advertise FILE_REFERENCE because Moodle would
+        // then defer downloads to thumbnail/preview generation, which would
+        // fail when the source host is third-party or unreachable from server
+        // PHP (e.g. inside Moodle Playground / @php-wasm where outbound HTTPS
+        // to non-CORS-open hosts is restricted).
+        return FILE_INTERNAL | FILE_EXTERNAL;
+    }
+
+    /**
+     * Resolve the public link for a FILE_EXTERNAL entry.
+     *
+     * Strips the "linked:" marker (added by {@see \repository_omeka\local\entry_factory})
+     * so the URL Moodle stores is the canonical external one. Binary sources
+     * (no marker) are returned unchanged for backwards compatibility.
+     *
+     * @param string $url Source value as handed back by the file picker.
+     * @return string Public URL ready to be stored as the external link.
+     */
+    public function get_link($url) {
+        return ingester_classifier::strip_marker((string)$url);
+    }
+
+    /**
+     * Return the source information stored in files.source.
+     *
+     * Strips the "linked:" marker so the stored value is a clean URL —
+     * useful when Moodle later displays the file's "Source" metadata.
+     *
+     * @param string $source Source value as handed back by the file picker.
+     * @return string|null
+     */
+    public function get_file_source_info($source) {
+        return ingester_classifier::strip_marker((string)$source);
     }
 
     /**
