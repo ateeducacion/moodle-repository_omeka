@@ -1,6 +1,16 @@
 name: Moodle Plugin CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel any in-progress run for the same branch/PR when a new commit lands.
+# Pushes to `main` are never cancelled so release/audit history stays intact.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   test:
@@ -30,9 +40,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.2', '8.3']
-        moodle-branch: ['MOODLE_500_STABLE', 'MOODLE_405_STABLE', 'MOODLE_404_STABLE']
-        database: [pgsql, mariadb]
+        include:
+          # Moodle 4.4 LTS — PHP 8.1–8.3
+          - { php: '8.1', moodle-branch: 'MOODLE_404_STABLE', database: pgsql }
+          - { php: '8.3', moodle-branch: 'MOODLE_404_STABLE', database: mariadb }
+          # Moodle 4.5 LTS — PHP 8.1–8.3 (8.4 desde 4.5.3+)
+          - { php: '8.1', moodle-branch: 'MOODLE_405_STABLE', database: mariadb }
+          - { php: '8.3', moodle-branch: 'MOODLE_405_STABLE', database: pgsql }
+          # Moodle 5.0 — PHP 8.2–8.4
+          - { php: '8.2', moodle-branch: 'MOODLE_500_STABLE', database: pgsql }
+          - { php: '8.4', moodle-branch: 'MOODLE_500_STABLE', database: mariadb }
+          # Moodle 5.1 — PHP 8.2–8.4
+          - { php: '8.2', moodle-branch: 'MOODLE_501_STABLE', database: mariadb }
+          - { php: '8.4', moodle-branch: 'MOODLE_501_STABLE', database: pgsql }
+          # Moodle 5.2 — PHP 8.3–8.4
+          # TEMPORARILY DISABLED: Moodle 5.2 requires postgres 16 (we use 15) and
+          # moodle-plugin-ci does not yet have full 5.2 support. Re-enable once
+          # issue #19 is resolved (postgres bump + service-image pins).
+          # - { php: '8.3', moodle-branch: 'MOODLE_502_STABLE', database: pgsql }
+          # - { php: '8.4', moodle-branch: 'MOODLE_502_STABLE', database: mariadb }
+          # Moodle 5.3 dev (main) — PHP 8.5
+          # TEMPORARILY DISABLED: depends on the same postgres 16 / plugin-ci
+          # updates as the 5.2 jobs above. Re-enable together once issue #19 is
+          # resolved.
+          # - { php: '8.5', moodle-branch: 'main', database: pgsql }
 
     steps:
     - name: Check out repository code

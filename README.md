@@ -30,21 +30,25 @@ is verified through a CI matrix (`moodle-ci.yml`) on the following branches:
 
 | Moodle branch         | PHP        | Status                              |
 | --------------------- | ---------- | ----------------------------------- |
-| 4.4.x (LTS)           | 8.2, 8.3   | Supported (verified in CI)          |
-| 4.5.x (LTS)           | 8.2, 8.3   | Supported (verified in CI)          |
-| 5.0.x                 | 8.2, 8.3   | Supported (verified in CI)          |
+| 4.4.x (LTS)           | 8.1, 8.3   | Supported (verified in CI)          |
+| 4.5.x (LTS)           | 8.1, 8.3   | Supported (verified in CI)          |
+| 5.0.x                 | 8.2, 8.4   | Supported (verified in CI)          |
+| 5.1.x                 | 8.2, 8.4   | Supported (verified in CI)          |
+| 5.2.x                 | 8.3, 8.4   | Planned (pending postgres 16 bump)  |
+| main (5.3 dev)        | 8.5        | Planned (pending postgres 16 bump)  |
 
-Older releases down to the declared minimum (Moodle 3.11) and newer releases
-(5.1.x, 5.2.x) are expected to work but are not part of the CI matrix yet. If
-you find an incompatibility please open an issue at
+Each branch is tested with PostgreSQL and MariaDB (rotated across PHP versions
+to keep the matrix sparse). Older releases down to the declared minimum
+(Moodle 3.11) are expected to work but are not part of the CI matrix. If you
+find an incompatibility please open an issue at
 <https://github.com/ateeducacion/moodle-repository_omeka/issues>.
 
 ### Requirements
 
-* **Moodle**: 3.11 or later (CI-verified on 4.4 LTS, 4.5 LTS and 5.0; expected
-  to keep working on newer releases up to 5.2.x).
-* **PHP**: 8.2 or 8.3 (CI matrix); any PHP supported by the Moodle release in
-  use.
+* **Moodle**: 3.11 or later (CI-verified on 4.4 LTS, 4.5 LTS, 5.0 and 5.1;
+  5.2 and main 5.3 dev planned, see the compatibility table above).
+* **PHP**: 8.1 through 8.4 covered by the CI matrix (8.5 planned together with
+  5.3 dev); any PHP supported by the Moodle release in use.
 * **Database**: PostgreSQL or MariaDB (CI-verified); any database supported by
   Moodle should work.
 * **Browser**: any modern, evergreen browser with JavaScript enabled.
