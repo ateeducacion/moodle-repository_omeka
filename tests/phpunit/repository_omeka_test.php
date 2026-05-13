@@ -85,6 +85,42 @@ final class repository_omeka_test extends advanced_testcase {
     }
 
     /**
+     * get_filetype_filter() intersects the admin's `acceptedtypes` option
+     * with the per-pick `mimetypes` array forwarded by the file picker, so
+     * forms that request a narrower set than the instance allows actually
+     * see only the intersection.
+     */
+    public function test_get_filetype_filter_intersects_picker_mimetypes(): void {
+        // Throwaway subclass stubs the base repository plumbing so we can
+        // exercise the private get_filetype_filter() in isolation, without
+        // booting an instance against the DB. Mirrors how the other smoke
+        // tests reach private methods via reflection.
+        $stub = new class extends \repository_omeka {
+            // phpcs:ignore moodle.Commenting.MissingDocblock
+            public function __construct() {
+                $this->options = [
+                    'acceptedtypes' => 'image, document',
+                    'mimetypes' => ['web_image'],
+                ];
+            }
+            // phpcs:ignore moodle.Commenting.MissingDocblock
+            public function get_option($name = '') {
+                return $this->options[$name] ?? null;
+            }
+        };
+        $method = (new \ReflectionClass(\repository_omeka::class))->getMethod('get_filetype_filter');
+        $method->setAccessible(true);
+        $combined = $method->invoke($stub);
+
+        // PDF is allowed by the base `document` group but rejected by `web_image`.
+        $this->assertFalse($combined->is_allowed('a.pdf', 'application/pdf'));
+        // JPEG passes both gates.
+        $this->assertTrue($combined->is_allowed('a.jpg', 'image/jpeg'));
+        // TIFF is in `image` but not in `web_image`, so the intersection rejects it.
+        $this->assertFalse($combined->is_allowed('a.tif', 'image/tiff'));
+    }
+
+    /**
      * The repository must advertise both FILE_INTERNAL (binary copy) and
      * FILE_EXTERNAL (URL hot-link) so the picker can pick the right mode for
      * each entry — binary media defaults to internal, linked media (oEmbed,
