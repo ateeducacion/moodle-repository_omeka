@@ -120,19 +120,6 @@ class repository_omeka extends repository {
     }
 
     /**
-     * Pure implementation of {@see wrap_cors_proxy()} that takes the playground
-     * state as explicit parameters instead of reading the MOODLE_PLAYGROUND /
-     * MOODLE_PLAYGROUND_PROXY_URL constants directly. Exposed so unit tests
-     * can cover every gating case without resorting to runInSeparateProcess
-     * (which re-boots Moodle core and trips unrelated PHP 8.5 deprecation
-     * warnings that PHPUnit --fail-on-warning misreports as test failures).
-     *
-     * @param string $url Absolute URL to wrap.
-     * @param bool $isplayground Whether the playground gate is active.
-     * @param string $proxyurl Proxy URL configured by the playground (may be empty).
-     * @return string Wrapped URL when the gate is active, original otherwise.
-     */
-    /**
      * Pick the API timeout in seconds: the longer playground value when the
      * MOODLE_PLAYGROUND constant is defined, otherwise the standard one.
      *
@@ -159,6 +146,19 @@ class repository_omeka extends repository {
         return self::DOWNLOAD_TIMEOUT;
     }
 
+    /**
+     * Pure implementation of {@see wrap_cors_proxy()} that takes the playground
+     * state as explicit parameters instead of reading the MOODLE_PLAYGROUND /
+     * MOODLE_PLAYGROUND_PROXY_URL constants directly. Exposed so unit tests
+     * can cover every gating case without resorting to runInSeparateProcess
+     * (which re-boots Moodle core and trips unrelated PHP 8.5 deprecation
+     * warnings that PHPUnit --fail-on-warning misreports as test failures).
+     *
+     * @param string $url Absolute URL to wrap.
+     * @param bool $isplayground Whether the playground gate is active.
+     * @param string $proxyurl Proxy URL configured by the playground (may be empty).
+     * @return string Wrapped URL when the gate is active, original otherwise.
+     */
     public static function wrap_url_with_proxy(string $url, bool $isplayground, string $proxyurl): string {
         if ($url === '' || !$isplayground) {
             return $url;
