@@ -77,6 +77,26 @@ final class api_client_test extends \advanced_testcase {
     }
 
     /**
+     * resource_class_term[] and resource_class_id[] array filters survive
+     * http_build_query encoding and round-trip back to PHP-style arrays. This
+     * is the wire format the listing_builder uses to push the configured
+     * `acceptedclasses` filter into every items request server-side.
+     */
+    public function test_get_items_forwards_resource_class_array_filters(): void {
+        $curl = $this->make_curl([]);
+        $client = new api_client('https://example.test/', null, null, 5, $curl);
+
+        $client->get_items(1, 20, [
+            'resource_class_term' => ['lrmi:LearningResource', 'dctype:Image'],
+            'resource_class_id' => [7, 8],
+        ]);
+
+        parse_str(parse_url($curl->lasturl, PHP_URL_QUERY), $query);
+        $this->assertSame(['lrmi:LearningResource', 'dctype:Image'], $query['resource_class_term']);
+        $this->assertSame(['7', '8'], $query['resource_class_id']);
+    }
+
+    /**
      * Omeka-S-Total-Results header is parsed when it lives in keyed headers.
      */
     public function test_total_header_keyed(): void {

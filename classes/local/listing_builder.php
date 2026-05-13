@@ -38,15 +38,25 @@ class listing_builder {
     /** @var string Repository base URL used by the "manage" link. */
     private $manageurl;
 
+    /** @var string[] Resource-class terms / ids configured at instance level. */
+    private $resourceclasses;
+
     /**
      * Constructor.
      *
      * @param api_client $client Omeka-S API client.
      * @param string $manageurl URL displayed in the "manage" link.
+     * @param string $resourceclasses Comma/space separated list of Omeka-S
+     *     resource-class terms (`lrmi:LearningResource`) or numeric ids.
+     *     Forwarded to every `/api/items` request as `resource_class_term[]=…`
+     *     (or `resource_class_id[]=…` for purely numeric entries) so the
+     *     filtering happens server-side. Empty string means "no filter",
+     *     matching the previous behaviour.
      */
-    public function __construct(api_client $client, string $manageurl = '') {
+    public function __construct(api_client $client, string $manageurl = '', string $resourceclasses = '') {
         $this->client = $client;
         $this->manageurl = rtrim($manageurl, '/');
+        $this->resourceclasses = self::parse_resource_classes($resourceclasses);
     }
 
     /**
@@ -96,6 +106,7 @@ class listing_builder {
         if (!empty($siteid)) {
             $filters['site_id'] = $siteid;
         }
+        $filters = $this->apply_class_filter($filters);
         $response = $this->client->get_items($page + 1, self::PER_PAGE, $filters);
         $list = $this->build_item_entries($response['body'] ?? [], $filter);
 
@@ -172,6 +183,7 @@ class listing_builder {
         ?int $itemsetid = null
     ): array {
         $filters = self::search_filters($text, $siteid, $itemsetid);
+        $filters = $this->apply_class_filter($filters);
         $response = $this->client->get_items($page + 1, self::PER_PAGE, $filters);
         $list = $this->build_item_entries($response['body'] ?? [], $filter);
         $pathinfo = [];
@@ -305,5 +317,65 @@ class listing_builder {
         } catch (\moodle_exception $e) {
             return ['body' => [], 'total' => null, 'http_code' => 0];
         }
+    }
+
+    /**
+     * Merge the instance-configured `acceptedclasses` filter into an items query.
+     *
+     * Numeric tokens become `resource_class_id[]` (Omeka-S internal id);
+     * everything else (typically vocab-prefixed terms like
+     * `lrmi:LearningResource`) becomes `resource_class_term[]`. Both forms
+     * accept array values, so a single request handles N classes without
+     * client-side merging or extra round-trips.
+     *
+     * @param array $filters Filters destined for {@see api_client::get_items}.
+     * @return array
+     */
+    private function apply_class_filter(array $filters): array {
+        if (empty($this->resourceclasses)) {
+            return $filters;
+        }
+        $ids = [];
+        $terms = [];
+        foreach ($this->resourceclasses as $token) {
+            if (ctype_digit($token)) {
+                $ids[] = (int)$token;
+            } else {
+                $terms[] = $token;
+            }
+        }
+        if (!empty($ids)) {
+            $filters['resource_class_id'] = array_values(array_unique($ids));
+        }
+        if (!empty($terms)) {
+            $filters['resource_class_term'] = array_values(array_unique($terms));
+        }
+        return $filters;
+    }
+
+    /**
+     * Normalise the raw `acceptedclasses` instance option into a token list.
+     *
+     * @param string $text Raw option value.
+     * @return string[] Lowercase token list (with case preserved for the
+     *     colon-prefixed local part of vocab terms — Omeka-S accepts both
+     *     `dctype:Image` and `dctype:image`, but we keep the user's casing
+     *     so the API matches with case-sensitive vocabulary backends).
+     */
+    private static function parse_resource_classes(string $text): array {
+        $clean = trim($text);
+        if ($clean === '') {
+            return [];
+        }
+        $clean = str_replace([';', "\n", "\r"], ',', $clean);
+        $parts = preg_split('/[\s,]+/', $clean, -1, PREG_SPLIT_NO_EMPTY);
+        $tokens = [];
+        foreach ($parts as $part) {
+            $part = trim($part);
+            if ($part !== '') {
+                $tokens[] = $part;
+            }
+        }
+        return array_values(array_unique($tokens));
     }
 }

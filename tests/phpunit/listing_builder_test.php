@@ -236,4 +236,62 @@ final class listing_builder_test extends \advanced_testcase {
         $this->assertCount(3, $result['list']);
         $this->assertSame(['a', 'b', 'c'], array_column($result['list'], 'title'));
     }
+
+    /**
+     * When the instance is configured with an `acceptedclasses` list, every
+     * items query gets the configured terms forwarded server-side as
+     * `resource_class_term[]` (and numeric tokens as `resource_class_id[]`)
+     * so the Omeka-S backend can apply the filter without merging or extra
+     * round-trips.
+     */
+    public function test_apply_class_filter_threads_through_items_queries(): void {
+        $client = $this->make_client([]);
+        $captured = [];
+        $client->expects($this->atLeastOnce())
+            ->method('get_items')
+            ->willReturnCallback(function ($page, $per, $filters) use (&$captured) {
+                $captured[] = $filters;
+                return ['body' => [], 'total' => 0, 'http_code' => 200];
+            });
+
+        $builder = new listing_builder(
+            $client,
+            '',
+            'lrmi:LearningResource, dctype:Image, 7',
+        );
+
+        $builder->list_items_in_set(42, 0, null, new filetype_filter(''));
+        $builder->search('', 0, null, new filetype_filter(''));
+
+        $this->assertNotEmpty($captured);
+        foreach ($captured as $filters) {
+            $this->assertSame(
+                ['lrmi:LearningResource', 'dctype:Image'],
+                $filters['resource_class_term'] ?? null,
+            );
+            $this->assertSame([7], $filters['resource_class_id'] ?? null);
+        }
+    }
+
+    /**
+     * Empty `acceptedclasses` leaves the filter array untouched — the legacy
+     * behaviour before the option existed.
+     */
+    public function test_no_class_filter_when_option_empty(): void {
+        $client = $this->make_client([]);
+        $captured = null;
+        $client->expects($this->once())
+            ->method('get_items')
+            ->willReturnCallback(function ($page, $per, $filters) use (&$captured) {
+                $captured = $filters;
+                return ['body' => [], 'total' => 0, 'http_code' => 200];
+            });
+
+        $builder = new listing_builder($client, '');
+        $builder->list_items_in_set(42, 0, null, new filetype_filter(''));
+
+        $this->assertIsArray($captured);
+        $this->assertArrayNotHasKey('resource_class_term', $captured);
+        $this->assertArrayNotHasKey('resource_class_id', $captured);
+    }
 }

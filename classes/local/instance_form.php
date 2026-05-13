@@ -115,4 +115,31 @@ class instance_form {
             $mform->setDefault('acceptedtypes', $current);
         }
     }
+
+    /**
+     * Add the Omeka-S resource-class filter field.
+     *
+     * The value is a comma/space separated list of resource class terms
+     * (e.g. `lrmi:LearningResource, dctype:Image`) or numeric ids. When the
+     * field is non-empty the plugin forwards each entry to the Omeka-S
+     * `/api/items` endpoint as `resource_class_term[]=…` so the filtering
+     * happens server-side without merging or extra round-trips.
+     *
+     * @param \MoodleQuickForm $mform Form.
+     * @param string $current Current value.
+     * @return void
+     */
+    public static function add_resource_class_field(\MoodleQuickForm $mform, string $current): void {
+        $mform->addElement(
+            'text',
+            'acceptedclasses',
+            get_string('acceptedclasses', 'repository_omeka'),
+        );
+        $mform->setType('acceptedclasses', PARAM_RAW_TRIMMED);
+        $mform->addHelpButton('acceptedclasses', 'acceptedclasses', 'repository_omeka');
+        $mform->disabledIf('acceptedclasses', 'baseurl', 'eq', '');
+        if ($current !== '') {
+            $mform->setDefault('acceptedclasses', $current);
+        }
+    }
 }
