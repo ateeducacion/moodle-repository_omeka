@@ -115,6 +115,9 @@ final class ingester_classifier_test extends \advanced_testcase {
     }
 
     /**
+     * Data provider listing MIME types that {@see classify_media()} must
+     * route to TYPE_BINARY regardless of the surrounding ingester.
+     *
      * @return array<string,array{0:string}>
      */
     public static function binary_mime_provider(): array {
