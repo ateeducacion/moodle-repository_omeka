@@ -198,7 +198,8 @@ class repository_omeka extends repository {
         if ($this->listingbuilder === null) {
             $this->listingbuilder = new listing_builder(
                 $this->get_client(),
-                rtrim((string)$this->get_option('baseurl'), '/')
+                rtrim((string)$this->get_option('baseurl'), '/'),
+                (string)$this->get_option('acceptedclasses'),
             );
         }
         return $this->listingbuilder;
@@ -472,6 +473,7 @@ class repository_omeka extends repository {
         }
         $currentsiteid = 0;
         $acceptedtypes = '';
+        $acceptedclasses = '';
         $currentsitelabel = '';
         $currentsiteslug = '';
         if (!$baseurl && $instanceid) {
@@ -481,6 +483,7 @@ class repository_omeka extends repository {
             $keycredential = (string)$instance->get_option('keycredential');
             $currentsiteid = (int)$instance->get_option('siteid');
             $acceptedtypes = (string)$instance->get_option('acceptedtypes');
+            $acceptedclasses = (string)$instance->get_option('acceptedclasses');
             $currentsitelabel = (string)$instance->get_option('sitelabel');
             $currentsiteslug = (string)$instance->get_option('siteslug');
         }
@@ -493,6 +496,7 @@ class repository_omeka extends repository {
         }
         instance_form::add_site_selector($mform, $sites, $currentsiteid, $currentsitelabel, $currentsiteslug);
         instance_form::add_filetype_selector($mform, $acceptedtypes);
+        instance_form::add_resource_class_field($mform, $acceptedclasses);
 
         $PAGE->requires->js_call_amd('repository_omeka/omekasites', 'init', [get_string('all')]);
 
@@ -536,6 +540,9 @@ class repository_omeka extends repository {
         if (isset($options['acceptedtypes'])) {
             $options['acceptedtypes'] = clean_param($options['acceptedtypes'], PARAM_RAW_TRIMMED);
         }
+        if (isset($options['acceptedclasses'])) {
+            $options['acceptedclasses'] = clean_param($options['acceptedclasses'], PARAM_RAW_TRIMMED);
+        }
         if (isset($options['sitelabel'])) {
             $options['sitelabel'] = clean_param($options['sitelabel'], PARAM_TEXT);
         }
@@ -551,7 +558,16 @@ class repository_omeka extends repository {
      * @return array
      */
     public static function get_instance_option_names() {
-        return ['baseurl', 'siteid', 'keyidentity', 'keycredential', 'acceptedtypes', 'sitelabel', 'siteslug'];
+        return [
+            'baseurl',
+            'siteid',
+            'keyidentity',
+            'keycredential',
+            'acceptedtypes',
+            'acceptedclasses',
+            'sitelabel',
+            'siteslug',
+        ];
     }
 
     /**
