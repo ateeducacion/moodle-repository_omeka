@@ -283,10 +283,15 @@ class repository_omeka extends repository {
         // path only when the user picked the default "Make a copy" option;
         // surface a clear instruction instead of silently failing in curl.
         if (is_string($source) && ingester_classifier::is_linked($source)) {
+            // Keep the user-facing message tight: pass the URL via $debuginfo
+            // (5th argument) so it only renders when the site is in
+            // developer-debug mode. End users see a clean instruction without
+            // the long Omeka/oEmbed URL stretching the error dialog.
             throw new \moodle_exception(
                 'linkedmedianotdownloadable',
                 'repository_omeka',
                 '',
+                null,
                 ingester_classifier::strip_marker($source)
             );
         }
