@@ -221,10 +221,10 @@ class repository_omeka extends repository {
         if ($fp === false) {
             throw new \moodle_exception('cannotdownload', 'repository_omeka');
         }
-        // wrap_cors_proxy() routes the URL through the playground proxy when
-        // running inside Moodle Playground (constant MOODLE_PLAYGROUND set) so
-        // tcpOverFetch does not waste a direct CORS-failing first attempt;
-        // outside the playground it returns $source unchanged.
+        // Route the URL through the playground proxy when running inside
+        // Moodle Playground (constant MOODLE_PLAYGROUND set) so tcpOverFetch
+        // does not waste a direct CORS-failing first attempt; outside the
+        // playground wrap_cors_proxy() returns $source unchanged.
         $proxied = self::wrap_cors_proxy((string)$source);
         $ok = $curl->download_one($proxied, [], [
             'file' => $fp,
