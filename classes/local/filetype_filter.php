@@ -27,10 +27,21 @@ namespace repository_omeka\local;
 
 /**
  * Decide whether a file is allowed for a repository instance.
+ *
+ * A filter holds one or more constraint sets. A file is allowed only when
+ * every non-empty constraint set contains at least one token that matches.
+ * This lets the plugin compose the admin-level instance allowlist
+ * (`acceptedtypes`) with Moodle's per-pick `accepted_types` (the array the
+ * file-picker forwards from the form that opened it) into a single immutable
+ * filter via {@see self::intersect()}.
  */
 class filetype_filter {
-    /** @var string[] Lowercase tokens describing the filter. */
-    private $tokens;
+    /**
+     * @var array<int, string[]> Stack of constraint sets. Each inner array is a
+     *      lowercase token list with the same OR-of-tokens semantics as the
+     *      original single-string filter.
+     */
+    private $constraints;
 
     /**
      * Constructor.
@@ -38,56 +49,66 @@ class filetype_filter {
      * @param string $acceptedtypes Comma/space separated tokens. Empty string allows everything.
      */
     public function __construct(string $acceptedtypes) {
-        $this->tokens = self::parse_tokens($acceptedtypes);
+        $this->constraints = [self::parse_tokens($acceptedtypes)];
     }
 
     /**
-     * Whether any filter token has been configured.
+     * Return a new filter that ANDs an extra constraint set on top of this one.
+     *
+     * Used to combine the per-instance `acceptedtypes` admin setting with
+     * Moodle's per-pick `accepted_types` array. The instance is not mutated
+     * so callers can keep a cached base filter and derive narrowed copies.
+     *
+     * @param array $tokens Picker-style token list (extensions like `.jpg`, group
+     *                      aliases like `web_image`, MIME types like `image/png`,
+     *                      or MIME wildcards like `image/*`). Empty array, `['*']`,
+     *                      or any list containing `'*'` is treated as
+     *                      "no extra constraint" and returns the receiver unchanged.
+     * @return self
+     */
+    public function intersect(array $tokens): self {
+        $normalised = self::tokens_from_array($tokens);
+        if (empty($normalised) || in_array('*', $normalised, true)) {
+            return $this;
+        }
+        $clone = clone $this;
+        $clone->constraints[] = $normalised;
+        return $clone;
+    }
+
+    /**
+     * Whether any constraint set has tokens configured.
      *
      * @return bool
      */
     public function is_empty(): bool {
-        return empty($this->tokens);
+        foreach ($this->constraints as $tokens) {
+            if (!empty($tokens)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
-     * Whether the given filename / mimetype pair is allowed.
+     * Whether the given filename / mimetype pair is allowed by every constraint set.
      *
      * @param string $filename Filename, may be empty.
      * @param string|null $mimetype Mimetype, may be empty/null.
      * @return bool
      */
     public function is_allowed(string $filename, ?string $mimetype): bool {
-        if (empty($this->tokens)) {
-            return true;
-        }
         $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         $mt = strtolower((string)$mimetype);
-
-        foreach ($this->tokens as $token) {
-            if ($token === '*') {
-                return true;
-            }
-            if ($token[0] === '.') {
-                if ($ext !== '' && $ext === substr($token, 1)) {
-                    return true;
-                }
+        foreach ($this->constraints as $tokens) {
+            if (empty($tokens)) {
                 continue;
             }
-            if (strpos($token, '/') !== false) {
-                if ($mt !== '' && $mt === $token) {
-                    return true;
-                }
-                continue;
-            }
-            if ($ext !== '' && $ext === $token) {
-                return true;
-            }
-            if (self::matches_group($token, $ext, $mt)) {
-                return true;
+            if (!self::any_token_matches($tokens, $ext, $mt)) {
+                return false;
             }
         }
-        return false;
+        return true;
     }
 
     /**
@@ -112,6 +133,74 @@ class filetype_filter {
             $tokens[] = strtolower($part);
         }
         return array_values(array_unique($tokens));
+    }
+
+    /**
+     * Normalise a Moodle picker-style token array.
+     *
+     * Moodle passes `accepted_types` as either the string `'*'` or an array of
+     * strings; the array may contain Moodle group aliases, extensions
+     * (with or without leading dot), MIME types, or MIME wildcards. We flatten
+     * to lowercase tokens, then run through {@see self::parse_tokens()} so a
+     * single string entry like `'image, .pdf'` is also accepted.
+     *
+     * @param array $tokens
+     * @return string[]
+     */
+    public static function tokens_from_array(array $tokens): array {
+        $merged = [];
+        foreach ($tokens as $token) {
+            if (!is_string($token)) {
+                continue;
+            }
+            foreach (self::parse_tokens($token) as $normalised) {
+                $merged[] = $normalised;
+            }
+        }
+        return array_values(array_unique($merged));
+    }
+
+    /**
+     * Match any token in a constraint set against an (ext, mimetype) pair.
+     *
+     * @param string[] $tokens Lowercase tokens.
+     * @param string $ext Lowercase extension (no leading dot).
+     * @param string $mt Lowercase mimetype.
+     * @return bool
+     */
+    private static function any_token_matches(array $tokens, string $ext, string $mt): bool {
+        foreach ($tokens as $token) {
+            if ($token === '*') {
+                return true;
+            }
+            if ($token[0] === '.') {
+                if ($ext !== '' && $ext === substr($token, 1)) {
+                    return true;
+                }
+                continue;
+            }
+            if (strpos($token, '/') !== false) {
+                // MIME type or `prefix/*` wildcard.
+                if (substr($token, -2) === '/*') {
+                    $prefix = substr($token, 0, -1);
+                    if ($mt !== '' && strpos($mt, $prefix) === 0) {
+                        return true;
+                    }
+                    continue;
+                }
+                if ($mt !== '' && $mt === $token) {
+                    return true;
+                }
+                continue;
+            }
+            if ($ext !== '' && $ext === $token) {
+                return true;
+            }
+            if (self::matches_group($token, $ext, $mt)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
