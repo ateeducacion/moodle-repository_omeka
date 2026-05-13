@@ -30,6 +30,7 @@ require_once($CFG->dirroot . '/repository/omeka/lib.php');
 
 use repository_omeka\local\filetype_filter;
 use repository_omeka\local\format_helper;
+use repository_omeka\local\ingester_classifier;
 use repository_omeka\local\license_mapper;
 
 /**
@@ -81,5 +82,49 @@ final class repository_omeka_test extends advanced_testcase {
         $this->assertTrue($filter->is_allowed('foto.png', 'image/png'));
         $this->assertFalse($filter->is_allowed('doc.zip', 'application/zip'));
         $this->assertTrue($filter->is_allowed('x.jpg', ''));
+    }
+
+    /**
+     * The repository must advertise both FILE_INTERNAL (binary copy) and
+     * FILE_EXTERNAL (URL hot-link) so the picker can pick the right mode for
+     * each entry — binary media defaults to internal, linked media (oEmbed,
+     * IIIF, url, html) defaults to the external link.
+     */
+    public function test_supported_returntypes_includes_both(): void {
+        $reflection = new \ReflectionClass(\repository_omeka::class);
+        $method = $reflection->getMethod('supported_returntypes');
+        $instance = $reflection->newInstanceWithoutConstructor();
+        $returntypes = (int)$method->invoke($instance);
+        $this->assertSame(FILE_INTERNAL, $returntypes & FILE_INTERNAL);
+        $this->assertSame(FILE_EXTERNAL, $returntypes & FILE_EXTERNAL);
+        // FILE_REFERENCE intentionally not advertised (see lib.php comment).
+        $this->assertSame(0, $returntypes & FILE_REFERENCE);
+    }
+
+    /**
+     * get_link() strips the "linked:" marker so the URL Moodle stores is
+     * the canonical external one.
+     */
+    public function test_get_link_strips_linked_marker(): void {
+        $reflection = new \ReflectionClass(\repository_omeka::class);
+        $instance = $reflection->newInstanceWithoutConstructor();
+        $marked = ingester_classifier::mark_linked('https://www.youtube.com/embed/abc');
+        $this->assertSame('https://www.youtube.com/embed/abc', $instance->get_link($marked));
+        // Plain URLs (binary entries) round-trip unchanged.
+        $plain = 'https://omeka.test/files/original/foo.jpg';
+        $this->assertSame($plain, $instance->get_link($plain));
+    }
+
+    /**
+     * get_file() refuses to download a linked source with a clear instruction
+     * pointing the user at the "Create a link" option.
+     */
+    public function test_get_file_throws_on_linked_source(): void {
+        $reflection = new \ReflectionClass(\repository_omeka::class);
+        $instance = $reflection->newInstanceWithoutConstructor();
+        $marked = ingester_classifier::mark_linked('https://www.youtube.com/embed/abc');
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessageMatches('/oEmbed|IIIF|external link|linked external/i');
+        $instance->get_file($marked);
     }
 }

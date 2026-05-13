@@ -22,6 +22,18 @@ You can also point the plugin at the public Omeka-S sandbox
 "Omeka Sandbox" repository instance pre-configured in the development
 environment, and works as a zero-setup target for evaluating the plugin.
 
+### Behaviour inside Moodle Playground
+
+When the plugin detects the `MOODLE_PLAYGROUND` constant in `config.php`
+(injected automatically by the playground runtime) it routes every outbound
+HTTP call to the configured Omeka-S host through `MOODLE_PLAYGROUND_PROXY_URL`
+(also set by the playground, from `playground.config.json:phpCorsProxyUrl`,
+with a hardcoded fallback for older builds). This avoids the noisy
+first-request CORS error that `@php-wasm`'s `tcpOverFetch` otherwise produces
+when it tries a direct `fetch()` before falling back to its configured proxy.
+In a normal Moodle install neither constant is defined and the plugin
+behaves identically to before — no proxy, no overhead, no UI changes.
+
 ## Compatibility
 
 The plugin's minimum required Moodle version is **Moodle 3.11**

@@ -38,6 +38,7 @@ $string['site_help'] = 'Selecciona el sitio de Omeka-S desde el que se recuperar
 $string['acceptedtypes'] = 'Tipos de archivo aceptados (opcional)';
 $string['acceptedtypes_help'] = 'Restringe los archivos a estos tipos. Deja vacío para permitir todos. Puedes introducir extensiones (p. ej., .pdf, .png), tipos MIME (p. ej., image/png) o grupos como image, audio, video, document, spreadsheet, presentation, archive.';
 $string['cannotdownload'] = 'No se pudo descargar el archivo desde Omeka-S.';
+$string['linkedmedianotdownloadable'] = 'Este recurso de Omeka-S es un elemento externo enlazado (vídeo oEmbed, manifiesto IIIF o URL) y no se puede copiar a Moodle. En el selector de archivos, selecciona "Crear un enlace" para insertarlo como enlace externo. ({$a})';
 $string['configplugin'] = 'Omeka-S';
 $string['omeka:view'] = 'Usar Omeka-S en el selector de archivos';
 $string['pluginname'] = 'Repositorio Omeka-S';

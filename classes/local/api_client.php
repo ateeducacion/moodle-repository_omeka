@@ -87,6 +87,9 @@ class api_client {
         if (!empty($params)) {
             $url .= '?' . http_build_query($params, '', '&');
         }
+        // Route through the Moodle Playground CORS proxy when applicable;
+        // returns the URL unchanged outside the playground.
+        $url = \repository_omeka::wrap_cors_proxy($url);
 
         // The ignoresecurity flag bypasses Moodle's curl_security_helper which
         // calls gethostbynamel() to validate the host. That resolver is

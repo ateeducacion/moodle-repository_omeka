@@ -29,6 +29,7 @@ require_once("{$CFG->libdir}/filelib.php");
 
 use repository_omeka\local\api_client;
 use repository_omeka\local\filetype_filter;
+use repository_omeka\local\ingester_classifier;
 use repository_omeka\local\instance_form;
 use repository_omeka\local\listing_builder;
 
@@ -43,8 +44,46 @@ use repository_omeka\local\listing_builder;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class repository_omeka extends repository {
-    /** @var int Default API timeout in seconds. */
-    const API_TIMEOUT = 10;
+    /**
+     * Default API timeout in seconds (used outside Moodle Playground).
+     * Bumped from 10 to 30 because we now serve the picker out of the listing
+     * builder which can issue 2-3 chained API calls (items + bulk media + the
+     * occasional item-set metadata). 30s is enough for the slowest reasonable
+     * round trip while still failing fast on a truly unreachable host.
+     */
+    const API_TIMEOUT = 30;
+
+    /**
+     * Higher API timeout used when the plugin runs inside Moodle Playground.
+     * Each PHP curl call there flows through @php-wasm's `tcpOverFetch`, which
+     * emulates a TCP socket with several round-trip `fetch()` calls
+     * (handshake, data chunks, FIN). Combined with the service worker hop and
+     * the upstream proxy, a single request can take noticeably longer than a
+     * direct call — especially on the first request after boot, before the
+     * fetch/SW pipelines are warm. 60s avoids the spurious "Connection timed
+     * out after 10000 milliseconds" error users see when opening the picker
+     * for the first time in a fresh playground tab.
+     */
+    const API_TIMEOUT_PLAYGROUND = 60;
+
+    /**
+     * File download timeout (used inside {@see get_file()}). Larger than the
+     * API timeout because the picker can pull multi-megabyte binaries.
+     */
+    const DOWNLOAD_TIMEOUT = 120;
+
+    /** Higher file download timeout used inside Moodle Playground. */
+    const DOWNLOAD_TIMEOUT_PLAYGROUND = 180;
+
+    /**
+     * Fallback CORS proxy used inside Moodle Playground when the playground
+     * runtime did not export MOODLE_PLAYGROUND_PROXY_URL (older builds).
+     * Never used in a normal Moodle install because the playground gate
+     * (MOODLE_PLAYGROUND constant) is required. Stored as a bare endpoint
+     * URL; the helper appends `?url=<encoded>` (or `&url=`) when building
+     * the final request URL.
+     */
+    const PLAYGROUND_CORS_PROXY_FALLBACK = 'https://github-proxy.exelearning.dev/';
 
     /** @var api_client|null Lazily built API client. */
     private $client;
@@ -54,6 +93,84 @@ class repository_omeka extends repository {
 
     /** @var filetype_filter|null Lazily built filetype filter. */
     private $filter;
+
+    /**
+     * Wrap a URL with the Moodle Playground CORS proxy when running inside
+     * Moodle Playground; return it unchanged in a normal Moodle install.
+     *
+     * The playground's @php-wasm tcpOverFetch otherwise tries a direct
+     * fetch first and only falls back to its configured proxy when the
+     * direct call fails by CORS, producing a noisy first-request CORS
+     * error in the browser console even though the request eventually
+     * succeeds. Emitting an already-proxied URL bypasses that path.
+     *
+     * Gated on the MOODLE_PLAYGROUND constant that the playground runtime
+     * injects into Moodle's config.php; when the constant is absent the
+     * helper short-circuits and the plugin behaves identically to before.
+     *
+     * @param string $url Absolute URL to wrap.
+     * @return string Wrapped URL inside the playground, original otherwise.
+     */
+    public static function wrap_cors_proxy(string $url): string {
+        $isplayground = defined('MOODLE_PLAYGROUND') && MOODLE_PLAYGROUND;
+        $proxyurl = defined('MOODLE_PLAYGROUND_PROXY_URL')
+            ? (string)MOODLE_PLAYGROUND_PROXY_URL
+            : '';
+        return self::wrap_url_with_proxy($url, $isplayground, $proxyurl);
+    }
+
+    /**
+     * Pick the API timeout in seconds: the longer playground value when the
+     * MOODLE_PLAYGROUND constant is defined, otherwise the standard one.
+     *
+     * @return int Timeout in seconds.
+     */
+    public static function get_api_timeout(): int {
+        if (defined('MOODLE_PLAYGROUND') && MOODLE_PLAYGROUND) {
+            return self::API_TIMEOUT_PLAYGROUND;
+        }
+        return self::API_TIMEOUT;
+    }
+
+    /**
+     * Pick the binary file download timeout in seconds. Higher than the API
+     * timeout because downloads stream more bytes; bumped further inside
+     * Moodle Playground to absorb the tcpOverFetch overhead.
+     *
+     * @return int Timeout in seconds.
+     */
+    public static function get_download_timeout(): int {
+        if (defined('MOODLE_PLAYGROUND') && MOODLE_PLAYGROUND) {
+            return self::DOWNLOAD_TIMEOUT_PLAYGROUND;
+        }
+        return self::DOWNLOAD_TIMEOUT;
+    }
+
+    /**
+     * Pure implementation of {@see wrap_cors_proxy()} that takes the playground
+     * state as explicit parameters instead of reading the MOODLE_PLAYGROUND /
+     * MOODLE_PLAYGROUND_PROXY_URL constants directly. Exposed so unit tests
+     * can cover every gating case without resorting to runInSeparateProcess
+     * (which re-boots Moodle core and trips unrelated PHP 8.5 deprecation
+     * warnings that PHPUnit --fail-on-warning misreports as test failures).
+     *
+     * @param string $url Absolute URL to wrap.
+     * @param bool $isplayground Whether the playground gate is active.
+     * @param string $proxyurl Proxy URL configured by the playground (may be empty).
+     * @return string Wrapped URL when the gate is active, original otherwise.
+     */
+    public static function wrap_url_with_proxy(string $url, bool $isplayground, string $proxyurl): string {
+        if ($url === '' || !$isplayground) {
+            return $url;
+        }
+        $proxy = $proxyurl !== '' ? $proxyurl : self::PLAYGROUND_CORS_PROXY_FALLBACK;
+        // Both proxy endpoints (the playground's scoped `__playground_proxy__`
+        // and the standalone github-proxy) expect the target URL in a `url`
+        // query parameter. Append `?url=` or `&url=` depending on whether the
+        // proxy URL already carries a query string.
+        $separator = strpos($proxy, '?') === false ? '?' : '&';
+        return $proxy . $separator . 'url=' . rawurlencode($url);
+    }
 
     /**
      * Return a cached API client built from the instance options.
@@ -66,7 +183,7 @@ class repository_omeka extends repository {
                 (string)$this->get_option('baseurl'),
                 (string)$this->get_option('keyidentity'),
                 (string)$this->get_option('keycredential'),
-                self::API_TIMEOUT
+                self::get_api_timeout()
             );
         }
         return $this->client;
@@ -154,11 +271,25 @@ class repository_omeka extends repository {
     /**
      * Download a remote file from Omeka-S into a temp file.
      *
-     * @param string $source File URL.
+     * @param string $source File URL (binary media) or "linked:<url>" marker
+     *                       value for linked media (oEmbed/IIIF/url/html).
      * @param string $filename Optional desired filename.
      * @return array With key 'path' pointing at the temp file.
      */
     public function get_file($source, $filename = '') {
+        // Linked media (oEmbed iframe, IIIF manifest, raw URL, HTML snippet)
+        // cannot be downloaded as a binary file — the only meaningful Moodle
+        // representation is a URL reference (FILE_EXTERNAL). We reach this
+        // path only when the user picked the default "Make a copy" option;
+        // surface a clear instruction instead of silently failing in curl.
+        if (is_string($source) && ingester_classifier::is_linked($source)) {
+            throw new \moodle_exception(
+                'linkedmedianotdownloadable',
+                'repository_omeka',
+                '',
+                ingester_classifier::strip_marker($source)
+            );
+        }
         $filename = $filename !== '' ? $filename : basename((string)parse_url((string)$source, PHP_URL_PATH));
         $tmpfile = $this->prepare_file($filename);
         // See classes/local/api_client.php for the rationale behind ignoresecurity.
@@ -167,10 +298,15 @@ class repository_omeka extends repository {
         if ($fp === false) {
             throw new \moodle_exception('cannotdownload', 'repository_omeka');
         }
-        $ok = $curl->download_one($source, [], [
+        // Route the URL through the playground proxy when running inside
+        // Moodle Playground (constant MOODLE_PLAYGROUND set) so tcpOverFetch
+        // does not waste a direct CORS-failing first attempt; outside the
+        // playground wrap_cors_proxy() returns $source unchanged.
+        $proxied = self::wrap_cors_proxy((string)$source);
+        $ok = $curl->download_one($proxied, [], [
             'file' => $fp,
             'CURLOPT_FOLLOWLOCATION' => 1,
-            'CURLOPT_TIMEOUT' => self::API_TIMEOUT * 6,
+            'CURLOPT_TIMEOUT' => self::get_download_timeout(),
         ]);
         fclose($fp);
         $info = $curl->get_info();
@@ -244,15 +380,44 @@ class repository_omeka extends repository {
      * @return int
      */
     public function supported_returntypes() {
-        // Only FILE_INTERNAL. We deliberately do not advertise FILE_REFERENCE
-        // because the Omeka-S source URL is third-party and may not be
-        // reachable from server PHP (e.g. when running inside Moodle Playground
-        // / @php-wasm where outbound HTTPS to non-CORS-open hosts is
-        // restricted). FILE_REFERENCE would store the URL and defer downloads
-        // to thumbnail/preview generation, which would then fail and trigger
-        // send_file_not_found(). FILE_INTERNAL forces bytes to be copied at
-        // download time so the file is self-contained.
-        return FILE_INTERNAL;
+        // FILE_INTERNAL: download a copy of the binary into Moodle (default
+        // for Omeka filestore media — `upload`, `file_sideload`, ...).
+        // FILE_EXTERNAL: store a URL reference so non-binary linked media
+        // (oEmbed videos, IIIF manifests, `url` / `html` ingesters) can be
+        // picked without trying to copy bytes that don't exist.
+        // We deliberately do not advertise FILE_REFERENCE because Moodle would
+        // then defer downloads to thumbnail/preview generation, which would
+        // fail when the source host is third-party or unreachable from server
+        // PHP (e.g. inside Moodle Playground / @php-wasm where outbound HTTPS
+        // to non-CORS-open hosts is restricted).
+        return FILE_INTERNAL | FILE_EXTERNAL;
+    }
+
+    /**
+     * Resolve the public link for a FILE_EXTERNAL entry.
+     *
+     * Strips the "linked:" marker (added by {@see \repository_omeka\local\entry_factory})
+     * so the URL Moodle stores is the canonical external one. Binary sources
+     * (no marker) are returned unchanged for backwards compatibility.
+     *
+     * @param string $url Source value as handed back by the file picker.
+     * @return string Public URL ready to be stored as the external link.
+     */
+    public function get_link($url) {
+        return ingester_classifier::strip_marker((string)$url);
+    }
+
+    /**
+     * Return the source information stored in files.source.
+     *
+     * Strips the "linked:" marker so the stored value is a clean URL —
+     * useful when Moodle later displays the file's "Source" metadata.
+     *
+     * @param string $source Source value as handed back by the file picker.
+     * @return string|null
+     */
+    public function get_file_source_info($source) {
+        return ingester_classifier::strip_marker((string)$source);
     }
 
     /**
@@ -472,6 +637,6 @@ class repository_omeka extends repository {
         if ($baseurl === '') {
             return null;
         }
-        return new api_client($baseurl, $keyidentity, $keycredential, self::API_TIMEOUT);
+        return new api_client($baseurl, $keyidentity, $keycredential, self::get_api_timeout());
     }
 }

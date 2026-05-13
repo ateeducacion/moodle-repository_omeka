@@ -32,13 +32,29 @@ class entry_factory {
     /**
      * Build an entry for a media (with parent item context).
      *
+     * Returns one of two entry shapes depending on the media's ingester:
+     *  - For binary media (Omeka-S filestore: `upload`, `file_sideload`, ...)
+     *    `source` is the `o:original_url` and the picker hands the bytes to
+     *    {@see \repository_omeka::get_file()} for FILE_INTERNAL storage.
+     *  - For linked media (oEmbed, IIIF, url, html ingesters) `source` is the
+     *    canonical external URL prefixed with the "linked:" marker; the
+     *    repository advertises FILE_EXTERNAL so the picker stores a URL
+     *    reference and never tries to copy the bytes through Moodle.
+     *
      * @param array $item Parent item (may be empty).
      * @param array $media Media resource.
      * @param filetype_filter $filter Filter applied to filenames/mimetypes.
      * @return array|null Entry array or null when not allowed / missing url.
      */
     public static function build_media_entry(array $item, array $media, filetype_filter $filter): ?array {
-        $fileurl = $media['o:original_url'] ?? ($media['o:source'] ?? '');
+        $kind = ingester_classifier::classify_media($media);
+        $islinked = $kind === ingester_classifier::TYPE_LINKED;
+
+        if ($islinked) {
+            $fileurl = ingester_classifier::extract_linked_url($media);
+        } else {
+            $fileurl = $media['o:original_url'] ?? ($media['o:source'] ?? '');
+        }
         if ($fileurl === '') {
             return null;
         }
@@ -47,7 +63,11 @@ class entry_factory {
         if ($mimetype === '') {
             $mimetype = (string)(format_helper::guess_mimetype_from_filename((string)$fileurl) ?? '');
         }
-        if (!$filter->is_allowed($filename, $mimetype)) {
+        // For linked entries the filename/extension is rarely meaningful (e.g.
+        // a YouTube iframe URL has no extension) so we keep the instance's
+        // filetype filter limited to binary media — otherwise linked media
+        // would always fail the extension check and be hidden from the picker.
+        if (!$islinked && !$filter->is_allowed($filename, $mimetype)) {
             return null;
         }
 
@@ -104,10 +124,19 @@ class entry_factory {
             }
         }
 
+        $sourcevalue = $islinked ? ingester_classifier::mark_linked((string)$fileurl) : (string)$fileurl;
+        // Linked media (oEmbed, IIIF, url, html) often have a generic or empty
+        // filename in their external URL; fall back to a synthetic one so the
+        // file picker has something meaningful to show.
+        if ($filename === '') {
+            $filename = $islinked
+                ? ($title !== '' ? clean_param((string)$title, PARAM_FILE) : 'link-' . ($media['o:id'] ?? 'x'))
+                : 'file-' . ($media['o:id'] ?? 'x');
+        }
         $entry = [
             'title' => $title,
-            'source' => $fileurl,
-            'filename' => $filename !== '' ? $filename : ('file-' . ($media['o:id'] ?? 'x')),
+            'source' => $sourcevalue,
+            'filename' => $filename,
             'icon' => self::icon_url($filename, $mimetype),
             'thumbnail' => $thumb,
             'thumbnail_height' => 90,
