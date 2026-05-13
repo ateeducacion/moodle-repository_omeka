@@ -50,9 +50,11 @@ class repository_omeka extends repository {
      * Fallback CORS proxy used inside Moodle Playground when the playground
      * runtime did not export MOODLE_PLAYGROUND_PROXY_URL (older builds).
      * Never used in a normal Moodle install because the playground gate
-     * (MOODLE_PLAYGROUND constant) is required.
+     * (MOODLE_PLAYGROUND constant) is required. Stored as a bare endpoint
+     * URL; the helper appends `?url=<encoded>` (or `&url=`) when building
+     * the final request URL.
      */
-    const PLAYGROUND_CORS_PROXY_FALLBACK = 'https://github-proxy.exelearning.dev/?url=';
+    const PLAYGROUND_CORS_PROXY_FALLBACK = 'https://github-proxy.exelearning.dev/';
 
     /** @var api_client|null Lazily built API client. */
     private $client;
@@ -106,7 +108,12 @@ class repository_omeka extends repository {
             return $url;
         }
         $proxy = $proxyurl !== '' ? $proxyurl : self::PLAYGROUND_CORS_PROXY_FALLBACK;
-        return $proxy . rawurlencode($url);
+        // Both proxy endpoints (the playground's scoped `__playground_proxy__`
+        // and the standalone github-proxy) expect the target URL in a `url`
+        // query parameter. Append `?url=` or `&url=` depending on whether the
+        // proxy URL already carries a query string.
+        $separator = strpos($proxy, '?') === false ? '?' : '&';
+        return $proxy . $separator . 'url=' . rawurlencode($url);
     }
 
     /**

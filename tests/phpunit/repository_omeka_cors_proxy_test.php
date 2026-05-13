@@ -81,15 +81,39 @@ final class repository_omeka_cors_proxy_test extends advanced_testcase {
     }
 
     /**
-     * With the gate active and a non-empty proxy URL the wrapper concatenates
-     * the proxy with rawurlencode-of-URL.
+     * With the gate active and a bare proxy endpoint (no query string), the
+     * wrapper appends `?url=<rawurlencoded>` — the shape the Moodle Playground
+     * service worker expects (a request to its scoped `__playground_proxy__`
+     * endpoint with the target URL in a `url` query param).
      */
-    public function test_impl_uses_provided_proxy_url(): void {
+    public function test_impl_appends_url_query_to_bare_proxy_endpoint(): void {
         $url = 'https://example.org/api/items?page=1&per_page=10';
-        $expected = 'https://proxy.example/?url=' . rawurlencode($url);
+        $expected = 'https://moodle-playground.com/playground/scope/runtime/__playground_proxy__'
+            . '?url=' . rawurlencode($url);
         $this->assertSame(
             $expected,
-            repository_omeka::wrap_url_with_proxy($url, true, 'https://proxy.example/?url=')
+            repository_omeka::wrap_url_with_proxy(
+                $url,
+                true,
+                'https://moodle-playground.com/playground/scope/runtime/__playground_proxy__'
+            )
+        );
+    }
+
+    /**
+     * When the proxy URL already contains a query string the wrapper joins
+     * with `&` instead of `?` so the resulting URL stays well-formed.
+     */
+    public function test_impl_uses_ampersand_when_proxy_already_has_query(): void {
+        $url = 'https://example.org/api/items';
+        $expected = 'https://proxy.example/handler?token=abc&url=' . rawurlencode($url);
+        $this->assertSame(
+            $expected,
+            repository_omeka::wrap_url_with_proxy(
+                $url,
+                true,
+                'https://proxy.example/handler?token=abc'
+            )
         );
     }
 
@@ -100,7 +124,8 @@ final class repository_omeka_cors_proxy_test extends advanced_testcase {
      */
     public function test_impl_falls_back_to_hardcoded_constant_when_proxy_url_empty(): void {
         $url = 'https://example.org/api/items?page=1';
-        $expected = repository_omeka::PLAYGROUND_CORS_PROXY_FALLBACK . rawurlencode($url);
+        $expected = repository_omeka::PLAYGROUND_CORS_PROXY_FALLBACK
+            . '?url=' . rawurlencode($url);
         $this->assertSame(
             $expected,
             repository_omeka::wrap_url_with_proxy($url, true, '')
