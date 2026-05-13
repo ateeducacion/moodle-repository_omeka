@@ -44,8 +44,36 @@ use repository_omeka\local\listing_builder;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class repository_omeka extends repository {
-    /** @var int Default API timeout in seconds. */
-    const API_TIMEOUT = 10;
+    /**
+     * Default API timeout in seconds (used outside Moodle Playground).
+     * Bumped from 10 to 30 because we now serve the picker out of the listing
+     * builder which can issue 2-3 chained API calls (items + bulk media + the
+     * occasional item-set metadata). 30s is enough for the slowest reasonable
+     * round trip while still failing fast on a truly unreachable host.
+     */
+    const API_TIMEOUT = 30;
+
+    /**
+     * Higher API timeout used when the plugin runs inside Moodle Playground.
+     * Each PHP curl call there flows through @php-wasm's `tcpOverFetch`, which
+     * emulates a TCP socket with several round-trip `fetch()` calls
+     * (handshake, data chunks, FIN). Combined with the service worker hop and
+     * the upstream proxy, a single request can take noticeably longer than a
+     * direct call — especially on the first request after boot, before the
+     * fetch/SW pipelines are warm. 60s avoids the spurious "Connection timed
+     * out after 10000 milliseconds" error users see when opening the picker
+     * for the first time in a fresh playground tab.
+     */
+    const API_TIMEOUT_PLAYGROUND = 60;
+
+    /**
+     * File download timeout (used inside {@see get_file()}). Larger than the
+     * API timeout because the picker can pull multi-megabyte binaries.
+     */
+    const DOWNLOAD_TIMEOUT = 120;
+
+    /** Higher file download timeout used inside Moodle Playground. */
+    const DOWNLOAD_TIMEOUT_PLAYGROUND = 180;
 
     /**
      * Fallback CORS proxy used inside Moodle Playground when the playground
@@ -104,6 +132,33 @@ class repository_omeka extends repository {
      * @param string $proxyurl Proxy URL configured by the playground (may be empty).
      * @return string Wrapped URL when the gate is active, original otherwise.
      */
+    /**
+     * Pick the API timeout in seconds: the longer playground value when the
+     * MOODLE_PLAYGROUND constant is defined, otherwise the standard one.
+     *
+     * @return int Timeout in seconds.
+     */
+    public static function get_api_timeout(): int {
+        if (defined('MOODLE_PLAYGROUND') && MOODLE_PLAYGROUND) {
+            return self::API_TIMEOUT_PLAYGROUND;
+        }
+        return self::API_TIMEOUT;
+    }
+
+    /**
+     * Pick the binary file download timeout in seconds. Higher than the API
+     * timeout because downloads stream more bytes; bumped further inside
+     * Moodle Playground to absorb the tcpOverFetch overhead.
+     *
+     * @return int Timeout in seconds.
+     */
+    public static function get_download_timeout(): int {
+        if (defined('MOODLE_PLAYGROUND') && MOODLE_PLAYGROUND) {
+            return self::DOWNLOAD_TIMEOUT_PLAYGROUND;
+        }
+        return self::DOWNLOAD_TIMEOUT;
+    }
+
     public static function wrap_url_with_proxy(string $url, bool $isplayground, string $proxyurl): string {
         if ($url === '' || !$isplayground) {
             return $url;
@@ -128,7 +183,7 @@ class repository_omeka extends repository {
                 (string)$this->get_option('baseurl'),
                 (string)$this->get_option('keyidentity'),
                 (string)$this->get_option('keycredential'),
-                self::API_TIMEOUT
+                self::get_api_timeout()
             );
         }
         return $this->client;
@@ -251,7 +306,7 @@ class repository_omeka extends repository {
         $ok = $curl->download_one($proxied, [], [
             'file' => $fp,
             'CURLOPT_FOLLOWLOCATION' => 1,
-            'CURLOPT_TIMEOUT' => self::API_TIMEOUT * 6,
+            'CURLOPT_TIMEOUT' => self::get_download_timeout(),
         ]);
         fclose($fp);
         $info = $curl->get_info();
@@ -582,6 +637,6 @@ class repository_omeka extends repository {
         if ($baseurl === '') {
             return null;
         }
-        return new api_client($baseurl, $keyidentity, $keycredential, self::API_TIMEOUT);
+        return new api_client($baseurl, $keyidentity, $keycredential, self::get_api_timeout());
     }
 }
