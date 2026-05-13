@@ -74,18 +74,67 @@ class ingester_classifier {
     ];
 
     /**
+     * MIME types that always identify a downloadable binary resource,
+     * regardless of which Omeka-S ingester surfaced it. Used by
+     * {@see classify_media()} to override the ingester-based heuristic.
+     *
+     * @var string[]
+     */
+    const BINARY_MIME_TYPES = [
+        'application/pdf',
+        'application/octet-stream',
+        'application/zip',
+        'application/x-zip-compressed',
+        'application/gzip',
+        'application/x-gzip',
+        'application/x-tar',
+        'application/x-7z-compressed',
+        'application/x-rar-compressed',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.oasis.opendocument.text',
+        'application/vnd.oasis.opendocument.spreadsheet',
+        'application/vnd.oasis.opendocument.presentation',
+        'application/rtf',
+        'application/epub+zip',
+        'application/x-mobipocket-ebook',
+    ];
+
+    /**
      * Classify a media JSON resource as either binary or linked.
      *
-     * The decision uses `o:ingester` first; when the ingester is unknown
-     * we fall back to whether the media exposes an `o:original_url` (a
-     * binary in Omeka's filestore) or not.
+     * The decision is MIME-type-first because Omeka's `url` ingester is a
+     * catch-all: it can wrap a Wikimedia .png (real binary, fully
+     * downloadable from `o:original_url`) just as easily as a Slideshare
+     * embed page. The `o:ingester` field alone is therefore not a reliable
+     * signal — `image/png` is binary whether it came from `upload`, `url`,
+     * `fileSideload` or anything else.
+     *
+     * Order of decision:
+     *  1. `o:media_type` matches a known binary content-type (image/*,
+     *     video/*, audio/*, application/pdf, office docs, archives…)
+     *     → BINARY.
+     *  2. `o:ingester` is in {@see LINKED_INGESTERS} (oEmbed, IIIF, html…)
+     *     and the MIME check above did not catch it → LINKED.
+     *  3. `o:ingester` is in {@see BINARY_INGESTERS} (upload, fileSideload)
+     *     → BINARY.
+     *  4. Unknown ingester: trust the filestore — if `o:original_url` is
+     *     non-empty Omeka has the bytes, otherwise it is a bare reference.
      *
      * @param array $media Media JSON resource as returned by /api/media.
      * @return string Either {@see TYPE_BINARY} or {@see TYPE_LINKED}.
      */
     public static function classify_media(array $media): string {
-        $ingester = isset($media['o:ingester']) ? (string)$media['o:ingester'] : '';
-        $ingestercmp = strtolower($ingester);
+        $mime = isset($media['o:media_type']) ? strtolower(trim((string)$media['o:media_type'])) : '';
+        if (self::is_binary_mime($mime)) {
+            return self::TYPE_BINARY;
+        }
+
+        $ingestercmp = isset($media['o:ingester']) ? strtolower((string)$media['o:ingester']) : '';
 
         // Linked ingesters never expose a downloadable original URL.
         foreach (self::LINKED_INGESTERS as $known) {
@@ -106,6 +155,30 @@ class ingester_classifier {
         // media as linked so we do not try to download a non-binary body.
         $originalurl = isset($media['o:original_url']) ? trim((string)$media['o:original_url']) : '';
         return $originalurl !== '' ? self::TYPE_BINARY : self::TYPE_LINKED;
+    }
+
+    /**
+     * Whether a MIME type identifies a downloadable binary resource.
+     *
+     * Recognises image/video/audio top-level types plus a curated list of
+     * document/archive types (PDFs, Office, OpenDocument, ZIP…).
+     *
+     * @param string $mime Lowercased MIME type (may be empty).
+     * @return bool
+     */
+    private static function is_binary_mime(string $mime): bool {
+        if ($mime === '') {
+            return false;
+        }
+        if (
+            strncmp($mime, 'image/', 6) === 0
+            || strncmp($mime, 'video/', 6) === 0
+            || strncmp($mime, 'audio/', 6) === 0
+            || strncmp($mime, 'font/', 5) === 0
+        ) {
+            return true;
+        }
+        return in_array($mime, self::BINARY_MIME_TYPES, true);
     }
 
     /**

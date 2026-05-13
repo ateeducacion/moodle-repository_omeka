@@ -72,12 +72,76 @@ final class ingester_classifier_test extends \advanced_testcase {
     }
 
     /**
-     * URL ingester is classified as linked.
+     * URL ingester is classified as linked when the MIME hint is missing or
+     * non-binary (this is the catch-all reference case).
      */
-    public function test_url_ingester_is_linked(): void {
+    public function test_url_ingester_without_binary_mime_is_linked(): void {
         $media = [
             'o:ingester' => 'url',
             'o:source' => 'https://example.test/page.html',
+        ];
+        $this->assertSame(ingester_classifier::TYPE_LINKED, ingester_classifier::classify_media($media));
+    }
+
+    /**
+     * URL ingester with an image MIME type is binary — Omeka's `url` ingester
+     * is a catch-all that often wraps a fully-downloadable binary (e.g. the
+     * sandbox's Sherlock Holmes images stored as Wikipedia URLs). The MIME
+     * type wins over the ingester taxonomy.
+     */
+    public function test_url_ingester_with_image_mime_is_binary(): void {
+        $media = [
+            'o:ingester' => 'url',
+            'o:media_type' => 'image/png',
+            'o:source' => 'https://upload.wikimedia.org/wikipedia/commons/d/dd/Arthur.png',
+            'o:original_url' => 'https://omeka.test/files/original/abc.png',
+        ];
+        $this->assertSame(ingester_classifier::TYPE_BINARY, ingester_classifier::classify_media($media));
+    }
+
+    /**
+     * Common binary MIME types short-circuit the ingester check entirely.
+     *
+     * @dataProvider binary_mime_provider
+     * @param string $mime MIME type that must classify as binary.
+     */
+    public function test_binary_mime_types_short_circuit(string $mime): void {
+        $media = [
+            'o:ingester' => 'url',
+            'o:media_type' => $mime,
+            'o:source' => 'https://example.test/asset',
+        ];
+        $this->assertSame(ingester_classifier::TYPE_BINARY, ingester_classifier::classify_media($media));
+    }
+
+    /**
+     * @return array<string,array{0:string}>
+     */
+    public static function binary_mime_provider(): array {
+        return [
+            'image/jpeg' => ['image/jpeg'],
+            'image/svg+xml' => ['image/svg+xml'],
+            'video/mp4' => ['video/mp4'],
+            'audio/mpeg' => ['audio/mpeg'],
+            'application/pdf' => ['application/pdf'],
+            'application/zip' => ['application/zip'],
+            'application/msword' => ['application/msword'],
+            'application/vnd.openxmlformats officedocs' => [
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ],
+            'font/woff2' => ['font/woff2'],
+        ];
+    }
+
+    /**
+     * Non-binary MIME types fall back to the ingester check. text/html on
+     * a `url` ingester (e.g. a SlideShare page wrapped via URL) stays linked.
+     */
+    public function test_text_html_mime_keeps_url_linked(): void {
+        $media = [
+            'o:ingester' => 'url',
+            'o:media_type' => 'text/html',
+            'o:source' => 'https://example.test/page',
         ];
         $this->assertSame(ingester_classifier::TYPE_LINKED, ingester_classifier::classify_media($media));
     }
