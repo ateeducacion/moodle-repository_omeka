@@ -1,0 +1,25 @@
+stages:
+  - release
+
+# ------------------------------------------
+# release
+# ------------------------------------------
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  only:
+    - tags
+  script:
+    # Calculate version and binary name in shell (supports “#v”)
+    - PACKAGE_VERSION="${CI_COMMIT_TAG#v}"
+    - PACKAGE_BINARY="decker-${PACKAGE_VERSION}"
+    - echo "Creating release for ${PACKAGE_BINARY}.zip"
+    # Create the release and add the correct asset link
+    - |
+      release-cli create \
+        --name "Release ${PACKAGE_VERSION}" \
+        --tag-name "${CI_COMMIT_TAG}" \
+        --description "Release for ${PACKAGE_VERSION}" \
+        --assets-link "{\"name\":\"${PACKAGE_BINARY}.zip\",\"url\":\"https://github.com/ateeducacion/moodle-repository_omeka/releases/download/${CI_COMMIT_TAG}/${PACKAGE_BINARY}.zip\"}"
+
+
