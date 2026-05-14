@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 // Registers the Omeka-S repository type as enabled+visible, allows course and
-// user instances, and creates a system-context instance pointing at
-// $OMEKA_BASEURL (defaults to the public sandbox). Idempotent — safe to run on
-// every container boot.
+// user instances, and creates two system-context instances against the public
+// Omeka-S sandbox: one unscoped, one scoped to the `mallhistory` site (id 4)
+// so manual testing exercises the single-site search path too. Idempotent —
+// safe to run on every container boot.
 //
 // Invoked from docker-compose.yml's POST_CONFIGURE_COMMANDS. Kept as a real
 // PHP file rather than `php -r '...'` because docker compose interpolates `$x`
@@ -51,13 +52,42 @@ set_config('enablecourseinstances', 1, 'omeka');
 set_config('enableuserinstances', 1, 'omeka');
 
 $ctx = context_system::instance();
-$existing = $DB->get_record('repository_instances', [
-    'typeid' => $typeid,
-    'contextid' => $ctx->id,
-]);
-if (!$existing) {
-    $inst = (object)[
+
+$instances = [
+    [
         'name' => 'Omeka Sandbox',
+        'baseurl' => $baseurl,
+        'siteid' => '0',
+        'siteslug' => '',
+        'sitelabel' => '',
+    ],
+    [
+        'name' => 'Omeka Sandbox mallhistory site',
+        'baseurl' => $baseurl,
+        'siteid' => '4',
+        'siteslug' => 'mallhistory',
+        'sitelabel' => 'Mall History Content',
+    ],
+];
+
+foreach ($instances as $spec) {
+    $existing = $DB->get_record('repository_instances', [
+        'typeid' => $typeid,
+        'contextid' => $ctx->id,
+        'name' => $spec['name'],
+    ]);
+    if ($existing) {
+        printf(
+            "%s instance already exists (typeid=%d, instanceid=%d)\n",
+            $spec['name'],
+            $typeid,
+            (int)$existing->id
+        );
+        continue;
+    }
+
+    $inst = (object)[
+        'name' => $spec['name'],
         'typeid' => $typeid,
         'userid' => 0,
         'contextid' => $ctx->id,
@@ -69,13 +99,13 @@ if (!$existing) {
     ];
     $instanceid = (int)$DB->insert_record('repository_instances', $inst);
     $cfgs = [
-        'baseurl' => $baseurl,
-        'siteid' => '0',
+        'baseurl' => $spec['baseurl'],
+        'siteid' => $spec['siteid'],
         'keyidentity' => '',
         'keycredential' => '',
         'acceptedtypes' => '',
-        'sitelabel' => '',
-        'siteslug' => '',
+        'sitelabel' => $spec['sitelabel'],
+        'siteslug' => $spec['siteslug'],
     ];
     foreach ($cfgs as $name => $value) {
         $DB->insert_record('repository_instance_config', (object)[
@@ -85,15 +115,11 @@ if (!$existing) {
         ]);
     }
     printf(
-        "Omeka Sandbox instance created (typeid=%d, instanceid=%d) -> %s\n",
+        "%s instance created (typeid=%d, instanceid=%d) -> %s siteid=%s\n",
+        $spec['name'],
         $typeid,
         $instanceid,
-        $baseurl
-    );
-} else {
-    printf(
-        "Omeka Sandbox instance already exists (typeid=%d, instanceid=%d)\n",
-        $typeid,
-        (int)$existing->id
+        $spec['baseurl'],
+        $spec['siteid']
     );
 }
