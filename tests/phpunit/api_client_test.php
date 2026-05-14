@@ -97,6 +97,33 @@ final class api_client_test extends \advanced_testcase {
     }
 
     /**
+     * The new "any property" free-text search built by listing_builder
+     * survives http_build_query and round-trips back to the expected nested
+     * structure Omeka-S consumes: `property[0][property]=&property[0][type]=in
+     * &property[0][text]=ada`, plus `site_id`.
+     */
+    public function test_get_items_forwards_property_query_with_site_id(): void {
+        $curl = $this->make_curl([]);
+        $client = new api_client('https://example.test/', null, null, 5, $curl);
+
+        $client->get_items(1, 20, [
+            'property' => [
+                ['property' => '', 'type' => 'in', 'text' => 'ada'],
+            ],
+            'site_id' => 7,
+        ]);
+
+        $this->assertStringStartsWith('https://example.test/api/items?', $curl->lasturl);
+        parse_str(parse_url($curl->lasturl, PHP_URL_QUERY), $query);
+        $this->assertSame('7', $query['site_id']);
+        $this->assertArrayNotHasKey('fulltext_search', $query);
+        $this->assertSame(
+            [['property' => '', 'type' => 'in', 'text' => 'ada']],
+            $query['property'],
+        );
+    }
+
+    /**
      * Omeka-S-Total-Results header is parsed when it lives in keyed headers.
      */
     public function test_total_header_keyed(): void {

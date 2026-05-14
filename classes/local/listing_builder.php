@@ -232,6 +232,24 @@ class listing_builder {
     /**
      * Build filters for the Omeka-S items endpoint from a search expression.
      *
+     * Free-text queries are translated into a single `property[]` condition
+     * with an empty property term and `type=in` (case-insensitive contains).
+     * Omeka-S interprets an empty property as "any property", so the query
+     * matches the text against every property value on the item — close in
+     * spirit to a fulltext search, but without the two pitfalls of the
+     * `fulltext_search` parameter:
+     *
+     *   1. `fulltext_search` joins against the `fulltext_search` MySQL index,
+     *      which is populated asynchronously by the Omeka-S indexer. Newly
+     *      saved items can be invisible to it for minutes.
+     *   2. When combined with `site_id`, Omeka-S adds the property/fulltext
+     *      WHERE clause via Doctrine's `andWhere()` without parenthesising
+     *      OR'd conditions, so the site filter can silently leak. A single
+     *      property condition avoids that whole class of issues.
+     *
+     * The `prop:value` shortcut (e.g. `dcterms:title:Ada`) is unchanged — it
+     * still maps to a targeted property query on the named term.
+     *
      * @param string $text Search expression.
      * @param int|null $siteid Optional site id.
      * @param int|null $itemsetid Optional item set id.
@@ -248,7 +266,11 @@ class listing_builder {
                     'text' => trim($matches[2]),
                 ];
             } else {
-                $filters['fulltext_search'] = $text;
+                $filters['property'][] = [
+                    'property' => '',
+                    'type' => 'in',
+                    'text' => $text,
+                ];
             }
         }
         if (!empty($siteid)) {

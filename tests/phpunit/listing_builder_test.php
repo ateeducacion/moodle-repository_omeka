@@ -130,17 +130,107 @@ final class listing_builder_test extends \advanced_testcase {
     }
 
     /**
-     * search_filters() maps property-style queries to Omeka-S property filters.
+     * search_filters() maps `prop:value` queries to a targeted property
+     * filter on the named term.
      */
-    public function test_search_filters(): void {
+    public function test_search_filters_property_shortcut(): void {
         $filters = listing_builder::search_filters('dcterms:title:Ada', null, null);
-        $this->assertSame('dcterms:title', $filters['property'][0]['property']);
-        $this->assertSame('Ada', $filters['property'][0]['text']);
 
+        $this->assertCount(1, $filters['property']);
+        $this->assertSame('dcterms:title', $filters['property'][0]['property']);
+        $this->assertSame('in', $filters['property'][0]['type']);
+        $this->assertSame('Ada', $filters['property'][0]['text']);
+        $this->assertArrayNotHasKey('fulltext_search', $filters);
+    }
+
+    /**
+     * Free-text searches use a single `property[]` condition with an empty
+     * property term (Omeka-S "any property"), NOT `fulltext_search`. See the
+     * docblock of {@see listing_builder::search_filters()} for the rationale.
+     */
+    public function test_search_filters_freetext_uses_any_property(): void {
         $filters = listing_builder::search_filters('plain text', 7, 12);
-        $this->assertSame('plain text', $filters['fulltext_search']);
+
+        $this->assertArrayNotHasKey('fulltext_search', $filters);
+        $this->assertCount(1, $filters['property']);
+        $this->assertSame('', $filters['property'][0]['property']);
+        $this->assertSame('in', $filters['property'][0]['type']);
+        $this->assertSame('plain text', $filters['property'][0]['text']);
         $this->assertSame(7, $filters['site_id']);
         $this->assertSame(12, $filters['item_set_id']);
+    }
+
+    /**
+     * Empty input keeps the filter array free of property/fulltext entries;
+     * only site / item-set scope (when provided) is forwarded.
+     */
+    public function test_search_filters_empty_input(): void {
+        $filters = listing_builder::search_filters('', 5, null);
+
+        $this->assertArrayNotHasKey('property', $filters);
+        $this->assertArrayNotHasKey('fulltext_search', $filters);
+        $this->assertSame(5, $filters['site_id']);
+    }
+
+    /**
+     * Whitespace-only input is treated as empty.
+     */
+    public function test_search_filters_whitespace_input(): void {
+        $filters = listing_builder::search_filters("  \t\n", null, null);
+
+        $this->assertArrayNotHasKey('property', $filters);
+        $this->assertArrayNotHasKey('fulltext_search', $filters);
+    }
+
+    /**
+     * End-to-end check: search() against a configured site_id forwards the
+     * property[] / site_id pair to the API client, with no `fulltext_search`
+     * key — which is precisely the combination that misbehaves on Omeka-S.
+     */
+    public function test_search_forwards_property_query_with_site_id(): void {
+        $client = $this->make_client([]);
+        $captured = null;
+        $client->expects($this->once())
+            ->method('get_items')
+            ->willReturnCallback(function ($page, $per, $filters) use (&$captured) {
+                $captured = $filters;
+                return ['body' => [], 'total' => 0, 'http_code' => 200];
+            });
+
+        $builder = new listing_builder($client, '');
+        $builder->search('ada', 0, 7, new filetype_filter(''));
+
+        $this->assertIsArray($captured);
+        $this->assertArrayNotHasKey('fulltext_search', $captured);
+        $this->assertSame(7, $captured['site_id']);
+        $this->assertSame(
+            [['property' => '', 'type' => 'in', 'text' => 'ada']],
+            $captured['property'],
+        );
+    }
+
+    /**
+     * Same check for the `prop:value` shortcut: the targeted property query
+     * goes through alongside `site_id`, and `fulltext_search` is absent.
+     */
+    public function test_search_forwards_prop_shortcut_with_site_id(): void {
+        $client = $this->make_client([]);
+        $captured = null;
+        $client->expects($this->once())
+            ->method('get_items')
+            ->willReturnCallback(function ($page, $per, $filters) use (&$captured) {
+                $captured = $filters;
+                return ['body' => [], 'total' => 0, 'http_code' => 200];
+            });
+
+        $builder = new listing_builder($client, '');
+        $builder->search('dcterms:title:Ada', 0, 7, new filetype_filter(''));
+
+        $this->assertIsArray($captured);
+        $this->assertArrayNotHasKey('fulltext_search', $captured);
+        $this->assertSame(7, $captured['site_id']);
+        $this->assertSame('dcterms:title', $captured['property'][0]['property']);
+        $this->assertSame('Ada', $captured['property'][0]['text']);
     }
 
     /**
