@@ -35,8 +35,17 @@ class listing_builder {
     /** @var api_client */
     private $client;
 
-    /** @var string Repository base URL used by the "manage" link. */
+    /** @var string Repository base URL used to build the "manage" link. */
     private $manageurl;
+
+    /** @var string Omeka-S site slug for the configured site, when known. */
+    private $siteslug;
+
+    /** @var string Optional URL for the toolbar "help" button. */
+    private $helpurl;
+
+    /** @var string Optional free-text shown in the toolbar message slot. */
+    private $message;
 
     /** @var string[] Resource-class terms / ids configured at instance level. */
     private $resourceclasses;
@@ -45,18 +54,38 @@ class listing_builder {
      * Constructor.
      *
      * @param api_client $client Omeka-S API client.
-     * @param string $manageurl URL displayed in the "manage" link.
+     * @param string $manageurl Repository base URL (used to build the
+     *     contextual "manage" link).
      * @param string $resourceclasses Comma/space separated list of Omeka-S
      *     resource-class terms (`lrmi:LearningResource`) or numeric ids.
      *     Forwarded to every `/api/items` request as `resource_class_term[]=…`
      *     (or `resource_class_id[]=…` for purely numeric entries) so the
      *     filtering happens server-side. Empty string means "no filter",
      *     matching the previous behaviour.
+     * @param string $siteslug Omeka-S site slug for the configured site.
+     *     When non-empty, the "manage" link targets the public Omeka-S site
+     *     pages (`/s/<slug>/…`) the user is browsing; when empty, it falls
+     *     back to the admin item index.
+     * @param string $helpurl Optional URL used for the file picker toolbar
+     *     "help" button. Empty string means "do not render the button".
+     * @param string $message Optional free-text displayed in the file picker
+     *     toolbar message slot (`.fp-tb-message`). Empty string means
+     *     "render no message".
      */
-    public function __construct(api_client $client, string $manageurl = '', string $resourceclasses = '') {
+    public function __construct(
+        api_client $client,
+        string $manageurl = '',
+        string $resourceclasses = '',
+        string $siteslug = '',
+        string $helpurl = '',
+        string $message = ''
+    ) {
         $this->client = $client;
         $this->manageurl = rtrim($manageurl, '/');
         $this->resourceclasses = self::parse_resource_classes($resourceclasses);
+        $this->siteslug = trim($siteslug);
+        $this->helpurl = trim($helpurl);
+        $this->message = trim($message);
     }
 
     /**
@@ -119,7 +148,7 @@ class listing_builder {
             ['name' => $settitle, 'path' => base64_encode('set:' . $itemsetid)],
         ];
 
-        return $this->wrap($list, $page, $response['total'] ?? null, $pathinfo);
+        return $this->wrap($list, $page, $response['total'] ?? null, $pathinfo, $itemsetid);
     }
 
     /**
@@ -162,7 +191,7 @@ class listing_builder {
         }
         $pathinfo[] = ['name' => $itemtitle, 'path' => base64_encode('item:' . $itemid)];
 
-        return $this->wrap($list, $page, $mediaresp['total'] ?? null, $pathinfo);
+        return $this->wrap($list, $page, $mediaresp['total'] ?? null, $pathinfo, $itemsetid, $itemid);
     }
 
     /**
@@ -197,7 +226,7 @@ class listing_builder {
                 ['name' => $settitle, 'path' => base64_encode((string)$itemsetid)],
             ];
         }
-        return $this->wrap($list, $page, $response['total'] ?? null, $pathinfo);
+        return $this->wrap($list, $page, $response['total'] ?? null, $pathinfo, $itemsetid);
     }
 
     /**
@@ -281,28 +310,77 @@ class listing_builder {
     /**
      * Wrap a list of entries with the metadata Moodle expects.
      *
+     * The `manage` field is built per-context so the button on the file
+     * picker toolbar links to the Omeka-S page the user is currently
+     * browsing instead of the bare site root. `help` and `message` are
+     * only present when there's something useful to render, so Moodle
+     * hides the toolbar slots instead of painting empty controls.
+     *
      * @param array $list Entries.
      * @param int $page Page (0-based).
      * @param int|null $total Total results, when known.
      * @param array $pathinfo Breadcrumb path.
+     * @param int|null $itemsetid Current item-set context (null at root).
+     * @param int|null $itemid Current item context (null outside an item).
      * @return array
      */
-    private function wrap(array $list, int $page, ?int $total, array $pathinfo): array {
+    private function wrap(
+        array $list,
+        int $page,
+        ?int $total,
+        array $pathinfo,
+        ?int $itemsetid = null,
+        ?int $itemid = null
+    ): array {
         $pages = $page;
         if ($total !== null && (($page + 1) * self::PER_PAGE) < $total) {
             $pages = -1;
         }
-        return [
+        $result = [
             'dynload' => true,
             'nologin' => true,
             'page' => $page,
             'norefresh' => false,
             'nosearch' => false,
-            'manage' => $this->manageurl,
+            'manage' => $this->build_manage_url($itemsetid, $itemid),
             'list' => $list,
             'path' => $pathinfo,
             'pages' => $pages,
         ];
+        if ($this->helpurl !== '') {
+            $result['help'] = $this->helpurl;
+        }
+        if ($this->message !== '') {
+            $result['message'] = $this->message;
+        }
+        return $result;
+    }
+
+    /**
+     * Build the URL pointed at by the file picker toolbar "manage" button.
+     *
+     * The Omeka-S admin login is rarely what the picker user wants — they
+     * are usually a course editor browsing the public site. When a site
+     * slug is configured we link to the matching public page (item, item
+     * set, or site root); otherwise we fall back to the admin item index
+     * because that is still more useful than the raw `baseurl`.
+     *
+     * @param int|null $itemsetid Optional item-set id for the current view.
+     * @param int|null $itemid Optional item id for the current view.
+     * @return string
+     */
+    private function build_manage_url(?int $itemsetid = null, ?int $itemid = null): string {
+        if ($this->siteslug === '') {
+            return $this->manageurl . '/admin/item';
+        }
+        $base = $this->manageurl . '/s/' . $this->siteslug;
+        if ($itemid) {
+            return $base . '/item/' . $itemid;
+        }
+        if ($itemsetid) {
+            return $base . '/item-set/' . $itemsetid;
+        }
+        return $base . '/';
     }
 
     /**

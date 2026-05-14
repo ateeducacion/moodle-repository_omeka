@@ -117,6 +117,52 @@ class instance_form {
     }
 
     /**
+     * Add the optional toolbar help URL field.
+     *
+     * The value populates the file picker toolbar "help" button so each
+     * picker instance can point at the relevant support page (an institution
+     * intranet, the plugin README, etc.). Leaving it empty hides the button.
+     *
+     * @param \MoodleQuickForm $mform Form.
+     * @param string $current Current value.
+     * @return void
+     */
+    public static function add_helpurl_field(\MoodleQuickForm $mform, string $current = ''): void {
+        $mform->addElement('text', 'helpurl', get_string('helpurl', 'repository_omeka'));
+        $mform->setType('helpurl', PARAM_URL);
+        $mform->addHelpButton('helpurl', 'helpurl', 'repository_omeka');
+        if ($current !== '') {
+            $mform->setDefault('helpurl', $current);
+        }
+    }
+
+    /**
+     * Add the optional toolbar message field.
+     *
+     * The value is forwarded to the file picker toolbar message slot
+     * (`.fp-tb-message`) verbatim, so each instance can warn users about
+     * curated subsets, ingest cadence, etc. Leaving it empty hides the
+     * message slot entirely.
+     *
+     * @param \MoodleQuickForm $mform Form.
+     * @param string $current Current value.
+     * @return void
+     */
+    public static function add_instancemessage_field(\MoodleQuickForm $mform, string $current = ''): void {
+        $mform->addElement(
+            'text',
+            'instancemessage',
+            get_string('instancemessage', 'repository_omeka'),
+            ['size' => 60, 'maxlength' => 250],
+        );
+        $mform->setType('instancemessage', PARAM_TEXT);
+        $mform->addHelpButton('instancemessage', 'instancemessage', 'repository_omeka');
+        if ($current !== '') {
+            $mform->setDefault('instancemessage', $current);
+        }
+    }
+
+    /**
      * Add the Omeka-S resource-class filter field.
      *
      * The value is a comma/space separated list of resource class terms

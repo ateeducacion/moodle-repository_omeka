@@ -200,9 +200,48 @@ class repository_omeka extends repository {
                 $this->get_client(),
                 rtrim((string)$this->get_option('baseurl'), '/'),
                 (string)$this->get_option('acceptedclasses'),
+                $this->resolve_site_slug(),
+                (string)$this->get_option('helpurl'),
+                (string)$this->get_option('instancemessage'),
             );
         }
         return $this->listingbuilder;
+    }
+
+    /**
+     * Resolve the Omeka-S site slug for the configured `siteid`.
+     *
+     * The slug is normally persisted by the instance form (via the
+     * `omekasites` AMD module that copies `o:slug` into the hidden field),
+     * but instances saved before that wiring landed — or via the WS-only
+     * configuration helper — may have a `siteid` without a `siteslug`. In
+     * that case we fetch it from `/api/sites/<id>` once and persist it,
+     * so the contextual "manage" link reaches the correct public page
+     * instead of falling back to the admin item index.
+     *
+     * @return string Slug, or empty string if the lookup failed / no site.
+     */
+    private function resolve_site_slug(): string {
+        $slug = (string)$this->get_option('siteslug');
+        if ($slug !== '') {
+            return $slug;
+        }
+        $siteid = (int)$this->get_option('siteid');
+        $baseurl = (string)$this->get_option('baseurl');
+        if (!$siteid || $baseurl === '') {
+            return '';
+        }
+        $details = self::fetch_site_details(
+            $baseurl,
+            (string)$this->get_option('keyidentity'),
+            (string)$this->get_option('keycredential'),
+            $siteid,
+        );
+        $slug = (string)($details['slug'] ?? '');
+        if ($slug !== '') {
+            $this->set_option(['siteslug' => $slug]);
+        }
+        return $slug;
     }
 
     /**
@@ -476,6 +515,8 @@ class repository_omeka extends repository {
         $acceptedclasses = '';
         $currentsitelabel = '';
         $currentsiteslug = '';
+        $helpurl = '';
+        $instancemessage = '';
         if (!$baseurl && $instanceid) {
             $instance = repository::get_instance($instanceid);
             $baseurl = (string)$instance->get_option('baseurl');
@@ -486,17 +527,28 @@ class repository_omeka extends repository {
             $acceptedclasses = (string)$instance->get_option('acceptedclasses');
             $currentsitelabel = (string)$instance->get_option('sitelabel');
             $currentsiteslug = (string)$instance->get_option('siteslug');
+            $helpurl = (string)$instance->get_option('helpurl');
+            $instancemessage = (string)$instance->get_option('instancemessage');
         }
 
         $sites = self::fetch_sites($baseurl, $keyidentity, $keycredential);
-        if ($currentsitelabel === '' && $currentsiteid && $baseurl) {
+        // Refetch when either the label or the slug is missing — instances
+        // saved before the slug was reliably persisted should heal on the
+        // next form open instead of needing manual re-selection.
+        if (($currentsitelabel === '' || $currentsiteslug === '') && $currentsiteid && $baseurl) {
             $details = self::fetch_site_details($baseurl, $keyidentity, $keycredential, $currentsiteid);
-            $currentsitelabel = $details['title'] ?? '';
-            $currentsiteslug = $details['slug'] ?? '';
+            if ($currentsitelabel === '') {
+                $currentsitelabel = $details['title'] ?? '';
+            }
+            if ($currentsiteslug === '') {
+                $currentsiteslug = $details['slug'] ?? '';
+            }
         }
         instance_form::add_site_selector($mform, $sites, $currentsiteid, $currentsitelabel, $currentsiteslug);
         instance_form::add_filetype_selector($mform, $acceptedtypes);
         instance_form::add_resource_class_field($mform, $acceptedclasses);
+        instance_form::add_helpurl_field($mform, $helpurl);
+        instance_form::add_instancemessage_field($mform, $instancemessage);
 
         $PAGE->requires->js_call_amd('repository_omeka/omekasites', 'init', [get_string('all')]);
 
@@ -549,6 +601,12 @@ class repository_omeka extends repository {
         if (isset($options['siteslug'])) {
             $options['siteslug'] = clean_param($options['siteslug'], PARAM_ALPHANUMEXT);
         }
+        if (isset($options['helpurl'])) {
+            $options['helpurl'] = clean_param($options['helpurl'], PARAM_URL);
+        }
+        if (isset($options['instancemessage'])) {
+            $options['instancemessage'] = clean_param($options['instancemessage'], PARAM_TEXT);
+        }
         return parent::set_option($options);
     }
 
@@ -567,6 +625,8 @@ class repository_omeka extends repository {
             'acceptedclasses',
             'sitelabel',
             'siteslug',
+            'helpurl',
+            'instancemessage',
         ];
     }
 
