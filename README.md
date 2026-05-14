@@ -139,4 +139,4 @@ Developed by the **Área de Tecnología Educativa** of the Government of the
 Canary Islands.
 
 - **Email:** [ate.educacion@gobiernodecanarias.org](mailto:ate.educacion@gobiernodecanarias.org)
-- **Web:** [www.gobiernodecanarias.org/educacion](https://www.gobiernodecanarias.org/educacion)
+- **Web:** [www3.gobiernodecanarias.org/medusa/ecoescuela/ate/](https://www3.gobiernodecanarias.org/medusa/ecoescuela/ate/)
