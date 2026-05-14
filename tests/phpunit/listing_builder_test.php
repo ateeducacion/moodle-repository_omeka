@@ -391,26 +391,46 @@ final class listing_builder_test extends \advanced_testcase {
     }
 
     /**
-     * When `acceptedclasses` is configured, the listing emits a `message`
-     * naming the active filter so the user understands why some expected
-     * items are missing. Without the filter the key is omitted entirely.
+     * The toolbar message slot displays a free-text string configured per
+     * instance — passthrough only, no auto-formatting. An empty value omits
+     * the key so the toolbar hides the slot.
      */
-    public function test_message_emitted_when_resource_classes_set(): void {
+    public function test_message_passthrough_from_configured_value(): void {
         $client = $this->make_client([
             'item_sets' => ['body' => [], 'total' => 0, 'http_code' => 200],
         ]);
-        $filtered = new listing_builder(
+        $configured = new listing_builder(
+            $client,
+            'https://example.test',
+            '',
+            '',
+            '',
+            'Curated subset of the institutional Mediateca.',
+        );
+        $blank = new listing_builder($client, 'https://example.test');
+
+        $this->assertSame(
+            'Curated subset of the institutional Mediateca.',
+            $configured->list_item_sets(0, null)['message'],
+        );
+        $this->assertArrayNotHasKey('message', $blank->list_item_sets(0, null));
+    }
+
+    /**
+     * The resource-class filter no longer auto-fills the message slot — it
+     * is purely a server-side filter again, and any toolbar copy comes from
+     * the configured instance message instead.
+     */
+    public function test_resource_class_filter_does_not_emit_message(): void {
+        $client = $this->make_client([
+            'item_sets' => ['body' => [], 'total' => 0, 'http_code' => 200],
+        ]);
+        $builder = new listing_builder(
             $client,
             'https://example.test',
             'lrmi:LearningResource, 7',
         );
-        $unfiltered = new listing_builder($client, 'https://example.test');
 
-        $result = $filtered->list_item_sets(0, null);
-        $this->assertArrayHasKey('message', $result);
-        $this->assertStringContainsString('lrmi:LearningResource', $result['message']);
-        $this->assertStringContainsString('7', $result['message']);
-
-        $this->assertArrayNotHasKey('message', $unfiltered->list_item_sets(0, null));
+        $this->assertArrayNotHasKey('message', $builder->list_item_sets(0, null));
     }
 }

@@ -44,6 +44,9 @@ class listing_builder {
     /** @var string Optional URL for the toolbar "help" button. */
     private $helpurl;
 
+    /** @var string Optional free-text shown in the toolbar message slot. */
+    private $message;
+
     /** @var string[] Resource-class terms / ids configured at instance level. */
     private $resourceclasses;
 
@@ -65,19 +68,24 @@ class listing_builder {
      *     back to the admin item index.
      * @param string $helpurl Optional URL used for the file picker toolbar
      *     "help" button. Empty string means "do not render the button".
+     * @param string $message Optional free-text displayed in the file picker
+     *     toolbar message slot (`.fp-tb-message`). Empty string means
+     *     "render no message".
      */
     public function __construct(
         api_client $client,
         string $manageurl = '',
         string $resourceclasses = '',
         string $siteslug = '',
-        string $helpurl = ''
+        string $helpurl = '',
+        string $message = ''
     ) {
         $this->client = $client;
         $this->manageurl = rtrim($manageurl, '/');
         $this->resourceclasses = self::parse_resource_classes($resourceclasses);
         $this->siteslug = trim($siteslug);
         $this->helpurl = trim($helpurl);
+        $this->message = trim($message);
     }
 
     /**
@@ -342,12 +350,8 @@ class listing_builder {
         if ($this->helpurl !== '') {
             $result['help'] = $this->helpurl;
         }
-        if (!empty($this->resourceclasses)) {
-            $result['message'] = get_string(
-                'filteringbyclass',
-                'repository_omeka',
-                implode(', ', $this->resourceclasses),
-            );
+        if ($this->message !== '') {
+            $result['message'] = $this->message;
         }
         return $result;
     }

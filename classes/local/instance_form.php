@@ -137,6 +137,32 @@ class instance_form {
     }
 
     /**
+     * Add the optional toolbar message field.
+     *
+     * The value is forwarded to the file picker toolbar message slot
+     * (`.fp-tb-message`) verbatim, so each instance can warn users about
+     * curated subsets, ingest cadence, etc. Leaving it empty hides the
+     * message slot entirely.
+     *
+     * @param \MoodleQuickForm $mform Form.
+     * @param string $current Current value.
+     * @return void
+     */
+    public static function add_instancemessage_field(\MoodleQuickForm $mform, string $current = ''): void {
+        $mform->addElement(
+            'text',
+            'instancemessage',
+            get_string('instancemessage', 'repository_omeka'),
+            ['size' => 60, 'maxlength' => 250],
+        );
+        $mform->setType('instancemessage', PARAM_TEXT);
+        $mform->addHelpButton('instancemessage', 'instancemessage', 'repository_omeka');
+        if ($current !== '') {
+            $mform->setDefault('instancemessage', $current);
+        }
+    }
+
+    /**
      * Add the Omeka-S resource-class filter field.
      *
      * The value is a comma/space separated list of resource class terms
