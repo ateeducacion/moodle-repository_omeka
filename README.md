@@ -1,7 +1,5 @@
 # Omeka-S Repository Plugin
 
-[![Preview in Moodle Playground](https://raw.githubusercontent.com/ateeducacion/action-moodle-playground-pr-preview/refs/heads/main/assets/playground-preview-button.svg)](https://moodle-playground.com/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/moodle-repository_omeka/refs/heads/main/blueprint.json)
-
 Moodle repository plugin that connects Moodle with one or more
 [Omeka-S](https://omeka.org/s/) instances, so digital resources can be searched
 and inserted from Moodle's file picker.
@@ -14,10 +12,12 @@ upon selecting one the items belonging to that set are listed.
 
 ## Try in Moodle Playground
 
-Click the badge above to open the `main` branch instantly in Moodle Playground
+Click the badge below to open the `main` branch instantly in Moodle Playground
 with the plugin pre-installed. Every pull request automatically generates a
 playground preview link appended to the PR description, so reviewers can test
 the changes in a live Moodle instance without any local setup.
+
+<a href="https://moodle-playground.com/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/moodle-repository_omeka/refs/heads/main/blueprint.json"><img src="https://raw.githubusercontent.com/ateeducacion/action-moodle-playground-pr-preview/refs/heads/main/assets/playground-preview-button.svg" alt="Preview in Moodle Playground" width="200"></a>
 
 You can also point the plugin at the public Omeka-S sandbox
 (<https://dev.omeka.org/omeka-s-sandbox/>) — it is the default URL used by the
