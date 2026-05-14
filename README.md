@@ -6,6 +6,8 @@ Moodle repository plugin that connects Moodle with one or more
 [Omeka-S](https://omeka.org/s/) instances, so digital resources can be searched
 and inserted from Moodle's file picker.
 
+![Omeka-S repository inside the Moodle file picker](.github/screenshot.png)
+
 File searches use the Omeka-S REST API and results are paginated to avoid
 loading every item at once. Navigation starts on the available item sets, and
 upon selecting one the items belonging to that set are listed.
