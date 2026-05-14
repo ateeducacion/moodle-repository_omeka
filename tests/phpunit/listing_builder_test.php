@@ -101,8 +101,13 @@ final class listing_builder_test extends \advanced_testcase {
         $this->assertCount(2, $result['list']);
         $this->assertSame('First', $result['list'][0]['title']);
         $this->assertSame(base64_encode('set:1'), $result['list'][0]['path']);
-        $this->assertSame('https://example.test', $result['manage']);
+        // No site slug configured → manage falls back to the admin item index.
+        $this->assertSame('https://example.test/admin/item', $result['manage']);
         $this->assertTrue($result['dynload']);
+        // No helpurl / acceptedclasses configured → keys are omitted so the
+        // toolbar does not paint empty controls.
+        $this->assertArrayNotHasKey('help', $result);
+        $this->assertArrayNotHasKey('message', $result);
     }
 
     /**
@@ -293,5 +298,119 @@ final class listing_builder_test extends \advanced_testcase {
         $this->assertIsArray($captured);
         $this->assertArrayNotHasKey('resource_class_term', $captured);
         $this->assertArrayNotHasKey('resource_class_id', $captured);
+    }
+
+    /**
+     * At the root listing, when a site slug is configured, `manage` points
+     * at the public Omeka-S site landing page (`/s/<slug>/`).
+     */
+    public function test_manage_url_at_root_uses_site_slug(): void {
+        $client = $this->make_client([
+            'item_sets' => ['body' => [['o:id' => 1, 'o:title' => 'X']], 'total' => 1, 'http_code' => 200],
+        ]);
+        $builder = new listing_builder($client, 'https://example.test', '', 'mediateca');
+
+        $result = $builder->list_item_sets(0, null);
+
+        $this->assertSame('https://example.test/s/mediateca/', $result['manage']);
+    }
+
+    /**
+     * Inside an item set, `manage` targets the matching public item-set
+     * page so the user lands on the same collection they're browsing.
+     */
+    public function test_manage_url_inside_item_set(): void {
+        $client = $this->make_client([
+            'items' => ['body' => [], 'total' => 0, 'http_code' => 200],
+            'item_set' => ['body' => ['o:id' => 42, 'o:title' => 'My set'], 'total' => null, 'http_code' => 200],
+        ]);
+        $builder = new listing_builder($client, 'https://example.test', '', 'mediateca');
+
+        $result = $builder->list_items_in_set(42, 0, null, new filetype_filter(''));
+
+        $this->assertSame('https://example.test/s/mediateca/item-set/42', $result['manage']);
+    }
+
+    /**
+     * Inside a single item, `manage` deep-links to the public item page.
+     */
+    public function test_manage_url_inside_item(): void {
+        $client = $this->make_client([
+            'item' => [
+                'body' => ['o:id' => 7, 'o:title' => 'An item', 'o:item_set' => []],
+                'total' => null,
+                'http_code' => 200,
+            ],
+            'media_for_item' => ['body' => [], 'total' => 0, 'http_code' => 200],
+        ]);
+        $builder = new listing_builder($client, 'https://example.test', '', 'mediateca');
+
+        $result = $builder->list_media_in_item(7, 0, new filetype_filter(''));
+
+        $this->assertSame('https://example.test/s/mediateca/item/7', $result['manage']);
+    }
+
+    /**
+     * Without a site slug the manage link cannot target a public site page,
+     * so we fall back to the admin item index rather than the bare baseurl.
+     */
+    public function test_manage_url_without_site_falls_back_to_admin(): void {
+        $client = $this->make_client([
+            'item_sets' => ['body' => [], 'total' => 0, 'http_code' => 200],
+        ]);
+        $builder = new listing_builder($client, 'https://example.test');
+
+        $result = $builder->list_item_sets(0, null);
+
+        $this->assertSame('https://example.test/admin/item', $result['manage']);
+    }
+
+    /**
+     * A configured help URL is forwarded verbatim so the file picker
+     * toolbar can render its Help button; an empty value omits the key so
+     * Moodle hides the button instead of painting an `<a href="">`.
+     */
+    public function test_help_url_passthrough(): void {
+        $client = $this->make_client([
+            'item_sets' => ['body' => [], 'total' => 0, 'http_code' => 200],
+        ]);
+        $withhelp = new listing_builder(
+            $client,
+            'https://example.test',
+            '',
+            '',
+            'https://docs.example.test/omeka',
+        );
+        $withouthelp = new listing_builder($client, 'https://example.test');
+
+        $this->assertSame(
+            'https://docs.example.test/omeka',
+            $withhelp->list_item_sets(0, null)['help'],
+        );
+        $this->assertArrayNotHasKey('help', $withouthelp->list_item_sets(0, null));
+    }
+
+    /**
+     * When `acceptedclasses` is configured, the listing emits a `message`
+     * naming the active filter so the user understands why some expected
+     * items are missing. Without the filter the key is omitted entirely.
+     */
+    public function test_message_emitted_when_resource_classes_set(): void {
+        $client = $this->make_client([
+            'item_sets' => ['body' => [], 'total' => 0, 'http_code' => 200],
+        ]);
+        $filtered = new listing_builder(
+            $client,
+            'https://example.test',
+            'lrmi:LearningResource, 7',
+        );
+        $unfiltered = new listing_builder($client, 'https://example.test');
+
+        $result = $filtered->list_item_sets(0, null);
+        $this->assertArrayHasKey('message', $result);
+        $this->assertStringContainsString('lrmi:LearningResource', $result['message']);
+        $this->assertStringContainsString('7', $result['message']);
+
+        $this->assertArrayNotHasKey('message', $unfiltered->list_item_sets(0, null));
     }
 }

@@ -200,6 +200,8 @@ class repository_omeka extends repository {
                 $this->get_client(),
                 rtrim((string)$this->get_option('baseurl'), '/'),
                 (string)$this->get_option('acceptedclasses'),
+                (string)$this->get_option('siteslug'),
+                (string)$this->get_option('helpurl'),
             );
         }
         return $this->listingbuilder;
@@ -476,6 +478,7 @@ class repository_omeka extends repository {
         $acceptedclasses = '';
         $currentsitelabel = '';
         $currentsiteslug = '';
+        $helpurl = '';
         if (!$baseurl && $instanceid) {
             $instance = repository::get_instance($instanceid);
             $baseurl = (string)$instance->get_option('baseurl');
@@ -486,6 +489,7 @@ class repository_omeka extends repository {
             $acceptedclasses = (string)$instance->get_option('acceptedclasses');
             $currentsitelabel = (string)$instance->get_option('sitelabel');
             $currentsiteslug = (string)$instance->get_option('siteslug');
+            $helpurl = (string)$instance->get_option('helpurl');
         }
 
         $sites = self::fetch_sites($baseurl, $keyidentity, $keycredential);
@@ -497,6 +501,7 @@ class repository_omeka extends repository {
         instance_form::add_site_selector($mform, $sites, $currentsiteid, $currentsitelabel, $currentsiteslug);
         instance_form::add_filetype_selector($mform, $acceptedtypes);
         instance_form::add_resource_class_field($mform, $acceptedclasses);
+        instance_form::add_helpurl_field($mform, $helpurl);
 
         $PAGE->requires->js_call_amd('repository_omeka/omekasites', 'init', [get_string('all')]);
 
@@ -549,6 +554,9 @@ class repository_omeka extends repository {
         if (isset($options['siteslug'])) {
             $options['siteslug'] = clean_param($options['siteslug'], PARAM_ALPHANUMEXT);
         }
+        if (isset($options['helpurl'])) {
+            $options['helpurl'] = clean_param($options['helpurl'], PARAM_URL);
+        }
         return parent::set_option($options);
     }
 
@@ -567,6 +575,7 @@ class repository_omeka extends repository {
             'acceptedclasses',
             'sitelabel',
             'siteslug',
+            'helpurl',
         ];
     }
 

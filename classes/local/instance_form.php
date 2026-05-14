@@ -117,6 +117,26 @@ class instance_form {
     }
 
     /**
+     * Add the optional toolbar help URL field.
+     *
+     * The value populates the file picker toolbar "help" button so each
+     * picker instance can point at the relevant support page (an institution
+     * intranet, the plugin README, etc.). Leaving it empty hides the button.
+     *
+     * @param \MoodleQuickForm $mform Form.
+     * @param string $current Current value.
+     * @return void
+     */
+    public static function add_helpurl_field(\MoodleQuickForm $mform, string $current = ''): void {
+        $mform->addElement('text', 'helpurl', get_string('helpurl', 'repository_omeka'));
+        $mform->setType('helpurl', PARAM_URL);
+        $mform->addHelpButton('helpurl', 'helpurl', 'repository_omeka');
+        if ($current !== '') {
+            $mform->setDefault('helpurl', $current);
+        }
+    }
+
+    /**
      * Add the Omeka-S resource-class filter field.
      *
      * The value is a comma/space separated list of resource class terms
