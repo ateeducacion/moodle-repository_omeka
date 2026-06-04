@@ -76,6 +76,29 @@ class repository_omeka extends repository {
     const DOWNLOAD_TIMEOUT_PLAYGROUND = 180;
 
     /**
+     * Hard ceiling (1 GiB) for a single media download in {@see get_file()}.
+     * The media URL is built from untrusted Omeka content, so without a cap a
+     * malicious or compromised host could stream an unbounded body and fill the
+     * server's temp partition. Enforced both with CURLOPT_MAXFILESIZE (when the
+     * host advertises a Content-Length) and a post-download size check.
+     */
+    const MAX_DOWNLOAD_BYTES = 1073741824;
+
+    /**
+     * Largest on-disk image (64 MiB) the Playground truncation check will read
+     * fully into memory for a decode. Above this we trust the header-only
+     * dimension read so a hostile file cannot spike memory.
+     */
+    const MAX_IMAGE_DECODE_BYTES = 67108864;
+
+    /**
+     * Largest image (in pixels) the Playground truncation check will fully
+     * decode. A width*height above this is treated as a decompression bomb and
+     * never expanded into an in-memory bitmap.
+     */
+    const MAX_IMAGE_PIXELS = 64000000;
+
+    /**
      * Fallback CORS proxy used inside Moodle Playground when the playground
      * runtime did not export MOODLE_PLAYGROUND_PROXY_URL (older builds).
      * Never used in a normal Moodle install because the playground gate
@@ -144,6 +167,43 @@ class repository_omeka extends repository {
             return self::DOWNLOAD_TIMEOUT_PLAYGROUND;
         }
         return self::DOWNLOAD_TIMEOUT;
+    }
+
+    /**
+     * Build the curl TLS/SSRF options for an outbound Omeka request.
+     *
+     * Strict on a normal server and relaxed only inside Moodle Playground,
+     * matching how the rest of the ATE plugins (e.g. mod_exelearning) handle
+     * the php-wasm runtime:
+     *
+     *  - Normal install: do NOT pass `ignoresecurity`, so Moodle's
+     *    curl_security_helper stays active and blocks requests to loopback,
+     *    link-local (cloud metadata, 169.254.169.254), private hosts and
+     *    non-allowlisted ports; and verify the TLS chain
+     *    (CURLOPT_SSL_VERIFYPEER/VERIFYHOST) because Moodle's curl wrapper
+     *    otherwise defaults peer verification off. This restores SSRF and
+     *    MITM protection on every outbound call, including the get_file()
+     *    download whose URL comes from untrusted Omeka content.
+     *  - Moodle Playground: the @php-wasm networking shim has no
+     *    gethostbynamel() and cannot present a verifiable TLS chain, so the
+     *    security helper rejects every host with "The URL is blocked." and TLS
+     *    verification fails. There (and only there, gated on the
+     *    MOODLE_PLAYGROUND constant the runtime injects) we relax both.
+     *
+     * @return array{construct: array, ssl: array} Constructor options for
+     *     `new \curl(...)` plus per-request SSL setopt keys to merge into the
+     *     request options.
+     */
+    public static function curl_security_options(): array {
+        if (defined('MOODLE_PLAYGROUND') && MOODLE_PLAYGROUND) {
+            // Playground: the wasm networking layer cannot verify TLS, so relax
+            // verification and the SSRF blocklist (matches the runtime's shim).
+            return ['construct' => ['ignoresecurity' => true], 'ssl' => []];
+        }
+        return [
+            'construct' => [],
+            'ssl' => ['CURLOPT_SSL_VERIFYPEER' => 1, 'CURLOPT_SSL_VERIFYHOST' => 2],
+        ];
     }
 
     /**
@@ -353,10 +413,20 @@ class repository_omeka extends repository {
                 ingester_classifier::strip_marker($source)
             );
         }
+        // Binary downloads must be plain http(s) resources. The source URL is
+        // built from untrusted Omeka content, so a compromised or malicious
+        // instance could otherwise hand us a file:// (local file disclosure) or
+        // other non-HTTP scheme via o:original_url; reject it before curl.
+        if (!is_string($source) || !ingester_classifier::is_http_url($source)) {
+            throw new \moodle_exception('cannotdownload', 'repository_omeka');
+        }
         $filename = $filename !== '' ? $filename : basename((string)parse_url((string)$source, PHP_URL_PATH));
         $tmpfile = $this->prepare_file($filename);
-        // See classes/local/api_client.php for the rationale behind ignoresecurity.
-        $curl = new \curl(['ignoresecurity' => true]);
+        // Keep Moodle's curl_security_helper (SSRF blocklist) and TLS
+        // verification active in a normal install; only relax them inside
+        // Moodle Playground. See curl_security_options().
+        $security = self::curl_security_options();
+        $curl = new \curl($security['construct']);
         $fp = fopen($tmpfile, 'w');
         if ($fp === false) {
             throw new \moodle_exception('cannotdownload', 'repository_omeka');
@@ -370,7 +440,11 @@ class repository_omeka extends repository {
             'file' => $fp,
             'CURLOPT_FOLLOWLOCATION' => 1,
             'CURLOPT_TIMEOUT' => self::get_download_timeout(),
-        ]);
+            // Bound the transfer so an untrusted host cannot stream an unbounded
+            // body to fill the temp partition (honoured when Content-Length is
+            // advertised; the post-download size check below is the backstop).
+            'CURLOPT_MAXFILESIZE' => self::MAX_DOWNLOAD_BYTES,
+        ] + $security['ssl']);
         fclose($fp);
         $info = $curl->get_info();
         $httpcode = (int)($info['http_code'] ?? 0);
@@ -382,32 +456,52 @@ class repository_omeka extends repository {
         // thumbnail. Surface the failure with diagnostics so the picker shows
         // a real error instead.
         $head = $size > 0 ? bin2hex((string)file_get_contents($tmpfile, false, null, 0, 16)) : '';
+        // Backstop for the size cap: CURLOPT_MAXFILESIZE only aborts up front
+        // when the host advertises a Content-Length, so reject anything that
+        // slipped through over the ceiling before we process it further.
+        $toolarge = $size > self::MAX_DOWNLOAD_BYTES;
         // The WASM playground's tcpOverFetch can also truncate the chunked
         // body mid-stream and leave curl thinking the transfer was a clean 200
         // OK with a partial body. For image targets, validate the file is a
         // readable image; if not, treat it as a failed download.
+        //
+        // In a normal install we only read the header (getimagesize, O(1)
+        // memory) which is enough to spot a broken/truncated header. The
+        // expensive full decode (imagecreatefromstring allocates
+        // width*height*~4 bytes and is a memory-DoS / decompression-bomb vector
+        // on untrusted input) is reserved for the Playground, where the body
+        // can be silently truncated and the runtime is single-user; even there
+        // it is bounded by the size / pixel caps so a bomb cannot OOM the worker.
+        $playground = defined('MOODLE_PLAYGROUND') && MOODLE_PLAYGROUND;
         $isimage = false;
         $ext = strtolower((string)pathinfo($tmpfile, PATHINFO_EXTENSION));
         $imageexts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
         $isimagecandidate = in_array($ext, $imageexts, true);
-        if ($isimagecandidate && function_exists('imagecreatefromstring')) {
-            // Use imagecreatefromstring (not getimagesize) because it decodes
-            // the entire image and rejects truncated bytes; getimagesize only
-            // reads the header and would accept a partial PNG as valid.
-            $bytes = (string)file_get_contents($tmpfile);
-            $img = $bytes !== '' ? @imagecreatefromstring($bytes) : false;
-            if ($img !== false) {
+        $caninspect = function_exists('getimagesize');
+        if ($isimagecandidate && $caninspect && !$toolarge) {
+            $dimensions = @getimagesize($tmpfile);
+            $pixels = $dimensions !== false
+                ? (int)($dimensions[0] ?? 0) * (int)($dimensions[1] ?? 0)
+                : 0;
+            if ($dimensions === false) {
+                // Unreadable / truncated header: treat as a failed download.
+                $isimage = false;
+            } else if ($playground && function_exists('imagecreatefromstring')
+                    && $size <= self::MAX_IMAGE_DECODE_BYTES
+                    && $pixels > 0 && $pixels <= self::MAX_IMAGE_PIXELS) {
+                $bytes = (string)file_get_contents($tmpfile);
+                $isimage = $bytes !== '' && @imagecreatefromstring($bytes) !== false;
+            } else {
+                // Production, or a file too large to decode safely: the header
+                // read above is sufficient; never load the whole file into RAM.
                 $isimage = true;
             }
-        } else if ($isimagecandidate && function_exists('getimagesize')) {
-            $isimage = @getimagesize($tmpfile) !== false;
         }
-        $imageinvalid = $isimagecandidate && !$isimage
-            && (function_exists('imagecreatefromstring') || function_exists('getimagesize'));
-        if ($ok === false || $httpcode >= 400 || $size === 0 || $imageinvalid) {
+        $imageinvalid = $isimagecandidate && $caninspect && !$isimage && !$toolarge;
+        if ($ok === false || $httpcode >= 400 || $size === 0 || $toolarge || $imageinvalid) {
             @unlink($tmpfile);
             $err = isset($curl->error) && $curl->error !== '' ? (string)$curl->error : 'transport failure';
-            $reason = $imageinvalid ? 'corrupted image' : $err;
+            $reason = $toolarge ? 'file too large' : ($imageinvalid ? 'corrupted image' : $err);
             throw new \moodle_exception(
                 'repositoryomeka_apierror',
                 'repository_omeka',
@@ -467,7 +561,11 @@ class repository_omeka extends repository {
      * @return string Public URL ready to be stored as the external link.
      */
     public function get_link($url) {
-        return ingester_classifier::strip_marker((string)$url);
+        $clean = ingester_classifier::strip_marker((string)$url);
+        // The stored external link comes from untrusted Omeka content; never let
+        // a javascript:/data:/file: value through as a hyperlink (stored XSS).
+        // Only plain http(s) resources are valid external media links.
+        return ingester_classifier::is_http_url($clean) ? $clean : '';
     }
 
     /**
@@ -480,7 +578,9 @@ class repository_omeka extends repository {
      * @return string|null
      */
     public function get_file_source_info($source) {
-        return ingester_classifier::strip_marker((string)$source);
+        $clean = ingester_classifier::strip_marker((string)$source);
+        // Same untrusted-URL guard as get_link(): only surface http(s) sources.
+        return ingester_classifier::is_http_url($clean) ? $clean : '';
     }
 
     /**

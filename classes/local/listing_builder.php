@@ -32,6 +32,10 @@ class listing_builder {
     /** @var int Page size used when paginating Omeka-S responses. */
     const PER_PAGE = 20;
 
+    /** @var int Maximum length of a free-text search expression forwarded to
+     *           Omeka, so an over-long picker query cannot bloat the request. */
+    const MAX_SEARCH_LENGTH = 256;
+
     /** @var api_client */
     private $client;
 
@@ -258,6 +262,11 @@ class listing_builder {
     public static function search_filters(string $text, ?int $siteid, ?int $itemsetid): array {
         $filters = [];
         $text = trim($text);
+        // Bound the free-text length so an over-long picker query cannot bloat
+        // the Omeka request / amplify backend work.
+        if (\core_text::strlen($text) > self::MAX_SEARCH_LENGTH) {
+            $text = \core_text::substr($text, 0, self::MAX_SEARCH_LENGTH);
+        }
         if ($text !== '') {
             if (preg_match('/^([a-z0-9:_-]+)\s*:\s*(.+)$/i', $text, $matches)) {
                 $filters['property'][] = [

@@ -52,6 +52,12 @@ class entry_factory {
 
         if ($islinked) {
             $fileurl = ingester_classifier::extract_linked_url($media);
+            // A linked entry becomes a FILE_EXTERNAL hyperlink stored by Moodle;
+            // a compromised Omeka could supply a javascript:/data: URL (stored
+            // XSS). Only accept plain http(s) external links.
+            if (!ingester_classifier::is_http_url((string)$fileurl)) {
+                return null;
+            }
         } else {
             $fileurl = $media['o:original_url'] ?? ($media['o:source'] ?? '');
         }
