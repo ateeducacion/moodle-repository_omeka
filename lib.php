@@ -486,9 +486,11 @@ class repository_omeka extends repository {
             if ($dimensions === false) {
                 // Unreadable / truncated header: treat as a failed download.
                 $isimage = false;
-            } else if ($playground && function_exists('imagecreatefromstring')
-                    && $size <= self::MAX_IMAGE_DECODE_BYTES
-                    && $pixels > 0 && $pixels <= self::MAX_IMAGE_PIXELS) {
+            } else if (
+                $playground && function_exists('imagecreatefromstring')
+                && $size <= self::MAX_IMAGE_DECODE_BYTES
+                && $pixels > 0 && $pixels <= self::MAX_IMAGE_PIXELS
+            ) {
                 $bytes = (string)file_get_contents($tmpfile);
                 $isimage = $bytes !== '' && @imagecreatefromstring($bytes) !== false;
             } else {

@@ -199,13 +199,11 @@ final class repository_omeka_test extends advanced_testcase {
     public function test_get_link_rejects_dangerous_schemes(): void {
         $reflection = new \ReflectionClass(\repository_omeka::class);
         $instance = $reflection->newInstanceWithoutConstructor();
-        $this->assertSame('', $instance->get_link(
-            ingester_classifier::mark_linked('javascript:alert(document.cookie)')));
+        $js = ingester_classifier::mark_linked('javascript:alert(document.cookie)');
+        $this->assertSame('', $instance->get_link($js));
         $this->assertSame('', $instance->get_link('data:text/html;base64,PHNjcmlwdD4='));
         // A legitimate external link still round-trips unchanged.
-        $this->assertSame(
-            'https://www.youtube.com/embed/abc',
-            $instance->get_link(ingester_classifier::mark_linked('https://www.youtube.com/embed/abc'))
-        );
+        $youtube = ingester_classifier::mark_linked('https://www.youtube.com/embed/abc');
+        $this->assertSame('https://www.youtube.com/embed/abc', $instance->get_link($youtube));
     }
 }
