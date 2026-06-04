@@ -433,6 +433,10 @@ package: ## Build a ZIP release (RELEASE=X.Y.Z required)
 	@rm -rf "$(PACKAGE_TMP)" "$(PLUGIN_NAME)-$(RELEASE).zip"
 	@mkdir -p "$(PACKAGE_TMP)/$(PLUGIN_DIR)"
 	@rsync -a --exclude-from=.distignore ./ "$(PACKAGE_TMP)/$(PLUGIN_DIR)/"
+	$(eval DATE_VERSION := $(shell date +%Y%m%d)00)
+	@echo "Stamping version.php -> version=$(DATE_VERSION) release=$(RELEASE)"
+	@$(SED_INPLACE) "s/\(plugin->version[[:space:]]*=[[:space:]]*\)[0-9]*/\1$(DATE_VERSION)/" "$(PACKAGE_TMP)/$(PLUGIN_DIR)/version.php"
+	@$(SED_INPLACE) "s/\(plugin->release[[:space:]]*=[[:space:]]*'\)[^']*/\1$(RELEASE)/" "$(PACKAGE_TMP)/$(PLUGIN_DIR)/version.php"
 	@cd "$(PACKAGE_TMP)" && zip -qr "$(CURDIR)/$(PLUGIN_NAME)-$(RELEASE).zip" "$(PLUGIN_DIR)"
 	@rm -rf "$(PACKAGE_TMP)"
 	@echo "Package created: $(PLUGIN_NAME)-$(RELEASE).zip"

@@ -24,8 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version = 2026060400;
+$plugin->version = 9999999999;       // Dev sentinel; `make package` stamps the real YYYYMMDDXX at release time.
 $plugin->requires = 2021041900;
-$plugin->release = '0.2.1';
+$plugin->release = 'dev';            // Dev branch; `make package` stamps the release version (semver) at package time.
 $plugin->component = 'repository_omeka';
 $plugin->maturity = MATURITY_BETA;
