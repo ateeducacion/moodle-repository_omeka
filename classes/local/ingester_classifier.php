@@ -268,6 +268,31 @@ class ingester_classifier {
     }
 
     /**
+     * Whether a URL is a safe remote http(s) resource.
+     *
+     * Media and linked-media URLs come from untrusted Omeka content, so a
+     * compromised instance could return a `javascript:` / `data:` URI (stored
+     * XSS when Moodle later renders it as a hyperlink via
+     * {@see \repository_omeka::get_link()}) or a `file://` URL (local file
+     * disclosure when handed to curl in {@see \repository_omeka::get_file()}).
+     * We only ever want plain http/https resources, so reject everything else.
+     *
+     * @param string $url Candidate URL.
+     * @return bool True when the URL has an http/https scheme and a host.
+     */
+    public static function is_http_url(string $url): bool {
+        $url = trim($url);
+        if ($url === '') {
+            return false;
+        }
+        $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+        if ($scheme !== 'http' && $scheme !== 'https') {
+            return false;
+        }
+        return (string)parse_url($url, PHP_URL_HOST) !== '';
+    }
+
+    /**
      * Extract the first `src` attribute from an `<iframe>` tag in an HTML
      * snippet (typically the `data.html` field of an oEmbed media).
      *

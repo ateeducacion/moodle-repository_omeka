@@ -105,12 +105,16 @@ class format_helper {
      * @return int|null Bytes or null when unknown.
      */
     public static function resolve_filesize(string $url, \curl $curl): ?int {
-        if (trim($url) === '') {
+        $url = trim($url);
+        // Only probe plain http(s) URLs and do not follow redirects: this helper
+        // runs against untrusted Omeka media URLs, so a 30x could otherwise turn
+        // it into an SSRF probe of an internal host.
+        if ($url === '' || !ingester_classifier::is_http_url($url)) {
             return null;
         }
         $curl->head($url, [
             'CURLOPT_NOBODY' => 1,
-            'CURLOPT_FOLLOWLOCATION' => 1,
+            'CURLOPT_FOLLOWLOCATION' => 0,
             'CURLOPT_TIMEOUT' => 5,
         ]);
         $info = method_exists($curl, 'get_info') ? $curl->get_info() : [];

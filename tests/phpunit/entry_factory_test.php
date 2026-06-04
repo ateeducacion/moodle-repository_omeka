@@ -154,6 +154,23 @@ final class entry_factory_test extends \advanced_testcase {
     }
 
     /**
+     * A linked media whose external URL is a javascript: URI (e.g. from a
+     * compromised Omeka) is dropped entirely so it can never become a stored
+     * FILE_EXTERNAL hyperlink (stored-XSS guard).
+     */
+    public function test_linked_media_with_dangerous_scheme_is_dropped(): void {
+        $item = ['o:id' => 7, 'o:title' => 'evil'];
+        $media = [
+            'o:id' => 70,
+            'o:ingester' => 'url',
+            'o:source' => 'javascript:alert(document.cookie)',
+        ];
+        $this->assertNull(
+            entry_factory::build_media_entry($item, $media, new filetype_filter(''))
+        );
+    }
+
+    /**
      * Binary entries still respect the filetype filter (regression).
      */
     public function test_binary_entries_still_filtered(): void {

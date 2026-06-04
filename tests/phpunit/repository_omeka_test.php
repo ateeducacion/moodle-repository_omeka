@@ -163,4 +163,47 @@ final class repository_omeka_test extends advanced_testcase {
         $this->expectExceptionMessageMatches('/oEmbed|IIIF|external link|linked external/i');
         $instance->get_file($marked);
     }
+
+    /**
+     * Outside Moodle Playground the curl options keep Moodle's SSRF blocklist
+     * active (no `ignoresecurity`) and enforce TLS chain verification, so the
+     * plugin's outbound requests are protected by default.
+     */
+    public function test_curl_security_options_strict_outside_playground(): void {
+        $opts = \repository_omeka::curl_security_options();
+        $this->assertSame([], $opts['construct']);
+        // The SSRF blocklist bypass is never requested in a normal install.
+        $this->assertArrayNotHasKey('ignoresecurity', $opts['construct']);
+        // TLS chain verification is enforced (Moodle's curl wrapper otherwise
+        // defaults peer verification off).
+        $this->assertSame(1, $opts['ssl']['CURLOPT_SSL_VERIFYPEER']);
+        $this->assertSame(2, $opts['ssl']['CURLOPT_SSL_VERIFYHOST']);
+    }
+
+    /**
+     * get_file() refuses to download a non-http(s) source (e.g. file://) before
+     * it ever reaches curl, closing the local-file-disclosure / SSRF vector for
+     * a malicious Omeka o:original_url.
+     */
+    public function test_get_file_rejects_non_http_source(): void {
+        $reflection = new \ReflectionClass(\repository_omeka::class);
+        $instance = $reflection->newInstanceWithoutConstructor();
+        $this->expectException(\moodle_exception::class);
+        $instance->get_file('file:///etc/passwd');
+    }
+
+    /**
+     * get_link() neutralises a javascript:/data: URL coming from untrusted
+     * Omeka content (stored-XSS guard) while passing http(s) links through.
+     */
+    public function test_get_link_rejects_dangerous_schemes(): void {
+        $reflection = new \ReflectionClass(\repository_omeka::class);
+        $instance = $reflection->newInstanceWithoutConstructor();
+        $js = ingester_classifier::mark_linked('javascript:alert(document.cookie)');
+        $this->assertSame('', $instance->get_link($js));
+        $this->assertSame('', $instance->get_link('data:text/html;base64,PHNjcmlwdD4='));
+        // A legitimate external link still round-trips unchanged.
+        $youtube = ingester_classifier::mark_linked('https://www.youtube.com/embed/abc');
+        $this->assertSame('https://www.youtube.com/embed/abc', $instance->get_link($youtube));
+    }
 }

@@ -192,6 +192,25 @@ final class api_client_test extends \advanced_testcase {
     }
 
     /**
+     * API credentials never reach the moodle_exception message: the URL
+     * embedded in the error (the {$a} placeholder, which Moodle logs and renders
+     * under developer debugging) has key_identity / key_credential masked, so
+     * the secret cannot leak.
+     */
+    public function test_error_message_redacts_credentials(): void {
+        $curl = $this->make_curl(['error' => 'nope'], 401);
+        $client = new api_client('https://example.test', 'myid', 'topsecretvalue', 5, $curl);
+        try {
+            $client->get('/api/items');
+            $this->fail('Expected moodle_exception');
+        } catch (\moodle_exception $e) {
+            $diagnostic = (string)$e->a . ' ' . $e->getMessage();
+            $this->assertStringNotContainsString('topsecretvalue', $diagnostic);
+            $this->assertStringContainsString('REDACTED', $diagnostic);
+        }
+    }
+
+    /**
      * Convenience helpers route through the expected endpoints.
      */
     public function test_endpoint_helpers(): void {

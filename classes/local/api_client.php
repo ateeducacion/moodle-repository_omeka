@@ -28,6 +28,13 @@ namespace repository_omeka\local;
  * Thin HTTP client around the Omeka-S REST API.
  */
 class api_client {
+    /**
+     * Defensive cap on the number of ids forwarded in a single bulk media
+     * request, so an unexpectedly large id list cannot produce an unbounded
+     * query string / per_page against the Omeka backend.
+     */
+    const MAX_BULK_IDS = 100;
+
     /** @var string Base URL of the Omeka-S installation (no trailing slash). */
     private $baseurl;
 
@@ -87,24 +94,29 @@ class api_client {
         if (!empty($params)) {
             $url .= '?' . http_build_query($params, '', '&');
         }
+        // Build a credential-free URL for diagnostics. Omeka-S only supports key
+        // auth via query params (key_identity / key_credential), so the live
+        // $url carries the secret; every error path below feeds its URL into
+        // moodle_exception debuginfo, which Moodle writes to the server log and
+        // renders on-screen under developer debugging. Never leak the key there.
+        $safeurl = self::redact_credentials($url);
         // Route through the Moodle Playground CORS proxy when applicable;
         // returns the URL unchanged outside the playground.
         $url = \repository_omeka::wrap_cors_proxy($url);
 
-        // The ignoresecurity flag bypasses Moodle's curl_security_helper which
-        // calls gethostbynamel() to validate the host. That resolver is
-        // unavailable in sandboxed PHP runtimes (e.g. Moodle Playground /
-        // @php-wasm) and would otherwise reject every Omeka URL with "The URL
-        // is blocked.". Safe here because the URL is always the
-        // admin-configured Omeka baseurl.
-        $curl = $this->curl ?: new \curl(['ignoresecurity' => true]);
+        // Keep Moodle's curl_security_helper (SSRF blocklist) and TLS chain
+        // verification active in a normal install; only relax them inside Moodle
+        // Playground, whose @php-wasm runtime lacks gethostbynamel() and cannot
+        // verify TLS. See \repository_omeka::curl_security_options().
+        $security = \repository_omeka::curl_security_options();
+        $curl = $this->curl ?: new \curl($security['construct']);
         $curl->setHeader(['Accept: application/json']);
         $response = $curl->get($url, [], [
             'CURLOPT_TIMEOUT' => $this->timeout,
             'CURLOPT_CONNECTTIMEOUT' => $this->timeout,
             'CURLOPT_FOLLOWLOCATION' => 1,
             'CURLOPT_MAXREDIRS' => 5,
-        ]);
+        ] + $security['ssl']);
 
         $info = method_exists($curl, 'get_info') ? $curl->get_info() : [];
         $httpcode = (int)($info['http_code'] ?? 0);
@@ -117,7 +129,7 @@ class api_client {
                 'repositoryomeka_apierror',
                 'repository_omeka',
                 '',
-                $url . ' -> ' . $err . ' (errno=' . $errno . ', http=' . $httpcode . ')'
+                $safeurl . ' -> ' . $err . ' (errno=' . $errno . ', http=' . $httpcode . ')'
             );
         }
 
@@ -126,7 +138,7 @@ class api_client {
                 'repositoryomeka_apierror',
                 'repository_omeka',
                 '',
-                $url . ' -> HTTP ' . $httpcode
+                $safeurl . ' -> HTTP ' . $httpcode
             );
         }
 
@@ -138,7 +150,7 @@ class api_client {
                 'repositoryomeka_apierror',
                 'repository_omeka',
                 '',
-                $url . ' -> invalid JSON (http=' . $httpcode . ', len=' . strlen($raw) . ', body=' . $preview . ')'
+                $safeurl . ' -> invalid JSON (http=' . $httpcode . ', len=' . strlen($raw) . ', body=' . $preview . ')'
             );
         }
 
@@ -235,6 +247,10 @@ class api_client {
         if ($ids === []) {
             return ['body' => [], 'total' => 0, 'http_code' => 200];
         }
+        // Never forward an unbounded id list / per_page to Omeka.
+        if (count($ids) > self::MAX_BULK_IDS) {
+            $ids = array_slice($ids, 0, self::MAX_BULK_IDS);
+        }
         return $this->get('/api/media', ['id' => $ids, 'per_page' => count($ids)]);
     }
 
@@ -255,6 +271,25 @@ class api_client {
      */
     public function get_site(int $id): array {
         return $this->get('/api/sites/' . $id);
+    }
+
+    /**
+     * Mask the API key query parameters in a URL so it is safe to place into
+     * exception debuginfo / logs.
+     *
+     * Replaces the value of any `key_identity` / `key_credential` query
+     * parameter with "REDACTED", regardless of order, leaving the rest of the
+     * URL intact for diagnostics.
+     *
+     * @param string $url URL that may contain the API key.
+     * @return string URL with the credential values masked.
+     */
+    private static function redact_credentials(string $url): string {
+        return (string)preg_replace(
+            '/(key_(?:identity|credential)=)[^&#]*/i',
+            '${1}REDACTED',
+            $url
+        );
     }
 
     /**
