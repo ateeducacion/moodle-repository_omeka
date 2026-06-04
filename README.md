@@ -44,7 +44,7 @@ is verified through a CI matrix (`moodle-ci.yml`) on the following branches:
 
 | Moodle branch         | PHP        | Status                              |
 | --------------------- | ---------- | ----------------------------------- |
-| 4.4.x (LTS)           | 8.1, 8.3   | Supported (verified in CI)          |
+| 4.4.x                 | 8.1, 8.3   | Supported (verified in CI)          |
 | 4.5.x (LTS)           | 8.1, 8.3   | Supported (verified in CI)          |
 | 5.0.x                 | 8.2, 8.4   | Supported (verified in CI)          |
 | 5.1.x                 | 8.2, 8.4   | Supported (verified in CI)          |
@@ -59,7 +59,7 @@ find an incompatibility please open an issue at
 
 ### Requirements
 
-* **Moodle**: 3.11 or later (CI-verified on 4.4 LTS, 4.5 LTS, 5.0 and 5.1;
+* **Moodle**: 3.11 or later (CI-verified on 4.4, 4.5 LTS, 5.0 and 5.1;
   5.2 and main 5.3 dev planned, see the compatibility table above).
 * **PHP**: 8.1 through 8.4 covered by the CI matrix (8.5 planned together with
   5.3 dev); any PHP supported by the Moodle release in use.
