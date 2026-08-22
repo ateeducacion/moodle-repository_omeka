@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 # Cancel any in-progress run for the same branch/PR when a new commit lands.
 # Pushes to `main` are never cancelled so release/audit history stays intact.
 concurrency:
@@ -18,7 +21,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        image: ${{ matrix.database == 'pgsql' && 'postgres:17' || '' }}
         env:
           POSTGRES_USER: 'postgres'
           POSTGRES_HOST_AUTH_METHOD: 'trust'
@@ -27,15 +30,14 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
 
       mariadb:
-        image: mariadb:10
+        image: ${{ matrix.database == 'mariadb' && 'mariadb:11.4' || '' }}
         env:
-          MYSQL_USER: 'root'
-          MYSQL_ALLOW_EMPTY_PASSWORD: "true"
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: '1'
           MYSQL_CHARACTER_SET_SERVER: "utf8mb4"
           MYSQL_COLLATION_SERVER: "utf8mb4_unicode_ci"
         ports:
         - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval 10s --health-timeout 5s --health-retries 3
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval 10s --health-timeout 5s --health-retries 3
 
     strategy:
       fail-fast: false
@@ -54,22 +56,17 @@ jobs:
           - { php: '8.2', moodle-branch: 'MOODLE_501_STABLE', database: mariadb }
           - { php: '8.4', moodle-branch: 'MOODLE_501_STABLE', database: pgsql }
           # Moodle 5.2 — PHP 8.3–8.4
-          # TEMPORARILY DISABLED: Moodle 5.2 requires postgres 16 (we use 15) and
-          # moodle-plugin-ci does not yet have full 5.2 support. Re-enable once
-          # issue #19 is resolved (postgres bump + service-image pins).
-          # - { php: '8.3', moodle-branch: 'MOODLE_502_STABLE', database: pgsql }
-          # - { php: '8.4', moodle-branch: 'MOODLE_502_STABLE', database: mariadb }
-          # Moodle 5.3 dev (main) — PHP 8.5
-          # TEMPORARILY DISABLED: depends on the same postgres 16 / plugin-ci
-          # updates as the 5.2 jobs above. Re-enable together once issue #19 is
-          # resolved.
-          # - { php: '8.5', moodle-branch: 'main', database: pgsql }
+          - { php: '8.3', moodle-branch: 'MOODLE_502_STABLE', database: pgsql }
+          - { php: '8.4', moodle-branch: 'MOODLE_502_STABLE', database: mariadb }
+          # Moodle 5.3 dev (main) — PHP 8.4
+          - { php: '8.4', moodle-branch: 'main', database: pgsql }
 
     steps:
     - name: Check out repository code
       uses: actions/checkout@v7
       with:
         path: plugin
+        persist-credentials: false
 
     - name: Setup PHP ${{ matrix.php }}
       uses: shivammathur/setup-php@v2
