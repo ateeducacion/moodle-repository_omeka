@@ -58,8 +58,8 @@ jobs:
           # Moodle 5.2 — PHP 8.3–8.4
           - { php: '8.3', moodle-branch: 'MOODLE_502_STABLE', database: pgsql }
           - { php: '8.4', moodle-branch: 'MOODLE_502_STABLE', database: mariadb }
-          # Moodle 5.3 dev (main) — PHP 8.5
-          - { php: '8.5', moodle-branch: 'main', database: pgsql }
+          # Moodle 5.3 dev (main) — PHP 8.4
+          - { php: '8.4', moodle-branch: 'main', database: pgsql }
 
     steps:
     - name: Check out repository code
