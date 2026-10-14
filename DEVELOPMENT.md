@@ -138,7 +138,7 @@ name Moodle expects under `repository/`). `.distignore` excludes:
 - Every dotfile / dotdir (`.git`, `.github`, `.ci`, `.env`, `.claude`,
   `.omc`, `.DS_Store`, …) via the `.*` pattern.
 - Development tooling: `Makefile`, `docker-compose*.yml`, `composer.*`,
-  `package*.json`, `phpcs.xml.dist`, `phpmd.xml`, `blueprint.json`.
+  `package*.json`, `phpcs.xml.dist`, `blueprint.json`.
 - `ci/`, `docker/`, `node_modules/`, `vendor/`, `tests/`.
 - Internal docs (`AGENTS.md`, `CLAUDE.md`, `DEVELOPMENT.md`, `CHANGELOG.md`).
 - Previously built `repository_omeka-*.zip` artifacts.
