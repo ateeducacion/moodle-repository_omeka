@@ -18,7 +18,6 @@
 /package.json
 /package-lock.json
 /phpcs.xml.dist
-/phpmd.xml
 
 # Internal documentation (README.md is shipped)
 /AGENTS.md

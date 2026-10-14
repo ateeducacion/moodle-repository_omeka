@@ -13,8 +13,7 @@
         "php": ">=8.1"
     },
     "require-dev": {
-        "moodlehq/moodle-cs": "^3.4",
-        "phpmd/phpmd": "^3.0"
+        "moodlehq/moodle-cs": "^3.4"
     },
     "config": {
         "allow-plugins": {
@@ -24,7 +23,7 @@
     "scripts": {
         "lint": "phpcs -d memory_limit=1G",
         "fix": "phpcbf -d memory_limit=1G",
-        "phpmd": "phpmd classes,lib.php,version.php,ajax.php,db text cleancode,codesize,controversial,design,naming,unusedcode",
+        "phpmd": "make phpmd",
         "test": "phpunit",
         "behat": "behat --config behat.yml"
     }
