@@ -14,7 +14,7 @@
     },
     "require-dev": {
         "moodlehq/moodle-cs": "^3.4",
-        "phpmd/phpmd": "^2.15"
+        "phpmd/phpmd": "^3.0"
     },
     "config": {
         "allow-plugins": {
