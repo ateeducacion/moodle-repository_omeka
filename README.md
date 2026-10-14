@@ -48,8 +48,9 @@ is verified through a CI matrix (`moodle-ci.yml`) on the following branches:
 | 4.5.x (LTS)           | 8.1, 8.3   | Supported (verified in CI)          |
 | 5.0.x                 | 8.2, 8.4   | Supported (verified in CI)          |
 | 5.1.x                 | 8.2, 8.4   | Supported (verified in CI)          |
-| 5.2.x                 | 8.3, 8.4   | Planned (pending postgres 16 bump)  |
-| main (5.3 dev)        | 8.5        | Planned (pending postgres 16 bump)  |
+| 5.2.x                 | 8.3, 8.4   | Supported (verified in CI)          |
+| 5.3.x (LTS)           | 8.3, 8.4   | Supported (CI coverage)             |
+| main (6.0dev)         | 8.4        | Experimental (non-blocking CI)      |
 
 Each branch is tested with PostgreSQL and MariaDB (rotated across PHP versions
 to keep the matrix sparse). Older releases down to the declared minimum
@@ -59,10 +60,10 @@ find an incompatibility please open an issue at
 
 ### Requirements
 
-* **Moodle**: 3.11 or later (CI-verified on 4.4, 4.5 LTS, 5.0 and 5.1;
-  5.2 and main 5.3 dev planned, see the compatibility table above).
-* **PHP**: 8.1 through 8.4 covered by the CI matrix (8.5 planned together with
-  5.3 dev); any PHP supported by the Moodle release in use.
+* **Moodle**: 3.11 or later (CI coverage for 4.4, 4.5 LTS, 5.0, 5.1,
+  5.2 and 5.3 LTS; 6.0dev is experimental, see the table above).
+* **PHP**: 8.1 through 8.4 covered by the CI matrix, depending on the Moodle
+  version in use; use a PHP version supported by your Moodle release.
 * **Database**: PostgreSQL or MariaDB (CI-verified); any database supported by
   Moodle should work.
 * **Browser**: any modern, evergreen browser with JavaScript enabled.
