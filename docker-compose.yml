@@ -17,7 +17,7 @@ services:
       - ./docker/mysql-init/02-create-omeka.sql:/docker-entrypoint-initdb.d/02-create-omeka.sql:ro
 
   moodle:
-    image: erseco/alpine-moodle:v5.0.5
+    image: erseco/alpine-moodle:v5.0.11
     restart: unless-stopped
     depends_on:
       - mariadb
