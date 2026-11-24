@@ -24,7 +24,6 @@
 
 namespace repository_omeka\local;
 
-
 /**
  * Stateless helpers to extract values from Omeka-S resources.
  */
