@@ -24,7 +24,6 @@
 
 namespace repository_omeka\local;
 
-
 /**
  * Map Omeka-S license strings or URIs to Moodle license codes.
  */

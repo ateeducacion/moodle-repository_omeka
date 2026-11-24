@@ -24,7 +24,6 @@
 
 namespace repository_omeka\local;
 
-
 /**
  * Decide whether a file is allowed for a repository instance.
  *

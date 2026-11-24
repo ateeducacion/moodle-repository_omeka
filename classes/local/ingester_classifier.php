@@ -24,7 +24,6 @@
 
 namespace repository_omeka\local;
 
-
 /**
  * Stateless helpers to classify Omeka-S media into "binary" (downloadable
  * file in Omeka's filestore) vs. "linked" (external resource: oEmbed video,

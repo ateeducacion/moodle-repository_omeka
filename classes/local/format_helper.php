@@ -24,7 +24,6 @@
 
 namespace repository_omeka\local;
 
-
 /**
  * Stateless helpers to parse human-readable sizes and guess mime types.
  */

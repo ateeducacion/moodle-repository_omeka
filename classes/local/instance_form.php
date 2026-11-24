@@ -24,7 +24,6 @@
 
 namespace repository_omeka\local;
 
-
 /**
  * Stateless UI helpers that build the instance form fields.
  */

@@ -24,7 +24,6 @@
 
 namespace repository_omeka\local;
 
-
 /**
  * Glue between the API client and the data structures Moodle expects.
  */
